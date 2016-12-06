@@ -2,6 +2,9 @@
 #include <vector>
 #include <regex>
 #include <fstream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
 
 #include <CImg.h>
 
@@ -11,10 +14,11 @@ using namespace std;
 using namespace cimg_library;
 
 //vector<char> vocabulario = {'a', 'e', 'i', 'o', 'u'};
-vector<char> vocabulario = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
-                            't', 'u', 'v', 'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ',', '.',
-                            ';', ':', '!', '?', '\'', '"', '|', '/', '_', '@', '#', '$', '%', '&', '^', '~', '+', '-', '*',
-                            '=', '<', '>', '(', ')', '[', ']', '{', '}'};
+vector<char> vocabulario =
+    {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
+     't', 'u', 'v', 'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ',', '.',
+     ';', ':', '!', '?', '\'', '"', '|', '/', '_', '@', '#', '$', '%', '&', '^', '~', '+', '-', '*',
+     '=', '<', '>', '(', ')', '[', ']', '{', '}'};
 int sizeVoc = vocabulario.size();
 
 void getAllEtiquetas(string contenido, vector<string> &allEtiquetas) {
@@ -130,16 +134,67 @@ void drawMatrix(int width, int height, vector<vector<int>> matrix, int id){
 
     //img.display("Display my image");
     std::string s = std::to_string(id);
-    string name = "/home/oscarqpe/qt-projects/CNNMLL/img/img";
+    string name = "/home/oscarqpe/proyectos/qt/vigilancia-tecnologica/clasificador-multietiqueta/img/img";
     name.append(s);
     name.append(".bmp");
     img.save_bmp(name.c_str());
 }
 
+/*cK define el numero de datos que se suman para obtener
+la distribucion normal. Referirse al paper de generacion de
+variables aleatorias. Carpeta traitement numerique de signal*/
+#define cK 1000
+float normalDistribution() {
+    float media = 0;
+    float variance = 0.02;
+    float aux=0;
+    float desv = sqrt(variance);
+    for (int k = 1;k <= cK;k++){
+        aux = aux + (float) rand() / RAND_MAX;
+    }
+    float num = desv * sqrt((float) 12 / cK) * (aux - (float) cK / 2) + media;
+    return num;
+}
+void initializeKernel(float (&kernel)[66][66]) {
+    for (int i = 0; i < 66; i++) {
+        for (int j = 0; j < 66; j++) {
+            kernel[i][j] = normalDistribution();
+        }
+    }
+}
+void showKernel(float kernel[66][66]) {
+    for (int i = 0; i < 66; i++) {
+        for (int j = 0; j < 66; j++) {
+            cout << kernel[i][j] << "\t";
+        }
+        cout << endl;
+    }
+}
+void convolution(vector<vector<int>> &matriz, float (&kernel)[66][66]) {
+    float conv[735];
+    float sum = 0;
+    int from = 0;
+    int to = 66;
+    cout << "[\n";
+    for (from = 0; to < 800; from++) {
+        for (int i = 0; i < 66; i++)
+        {
+            for (int j = 0; j < 66; j++) {
+                sum += matriz[i + from][j] * kernel[i][j];
+            }
+        }
+        conv[from] = sum;
+        cout << sum << ", ";
+        sum = 0;
+        to++;
+    }
+    cout << "\n]\n";
+    //return conv;
+}
 int main(int argc, char** argv) {
-    string texto = "aeiou";
+    srand(time(NULL));
 
-    string filename = "/home/oscarqpe/qt-projects/CNNMLL/textos/reut2-000.sgm", line, content;
+    string filename = "/home/oscarqpe/proyectos/qt/vigilancia-tecnologica/clasificador-multietiqueta/textos/reut2-000.sgm", line, content;
 
     ifstream file(filename);
     if (file.is_open()) {
@@ -170,19 +225,50 @@ int main(int argc, char** argv) {
         documentos.push_back(documento);
         ++it;
         i++;
-        if (i == 9)
-            break;
+        //if (i == 9)
+        //    break;
     }
-
+    int total = 0;
+    int totalDoc = 0;
+    vector<Documento> documentosProcesar;
     for (int i = 0; i < documentos.size(); i++)
     {
-        cout << i + 1 << ") Texto:" << "[" << documentos[i].getEtiquetas().size() << " Etiquetas]" << endl;
-        documentos[i].mostrarEtiquetas();
-        cout << documentos[i].getContenido() << endl;
-        documentos[i].mostrarMatriz(sizeVoc);
-        drawMatrix(100/*documentos[i].getContenido().size()*/, sizeVoc, documentos[i].matriz, i);
+        if (documentos[i].getContenido().size() >= 800 && documentos[i].getEtiquetas().size() > 0) {
+            cout << totalDoc + 1 << ") Texto:" << "[" << documentos[i].getEtiquetas().size() << " Etiquetas]" << endl;
+            documentos[i].mostrarEtiquetas();
+            //cout << documentos[i].getContenido() << endl;
+            //documentos[i].mostrarMatriz(sizeVoc);
+            cout << "[" << documentos[i].getContenido().size() << ", " << sizeVoc << "]" << endl;
+            total +=  documentos[i].getContenido().size();
+            //drawMatrix(800/*documentos[i].getContenido().size()*/, sizeVoc, documentos[i].matriz, totalDoc);
+            documentosProcesar.push_back(documentos[i]);
+            totalDoc++;
+        }
     }
+    cout << total / totalDoc << endl;
 
+    // CONVOLUCIONES
+
+    float kernel1[66][66];
+    float kernel2[66][66];
+    float kernel3[66][66];
+    float kernel4[66][66];
+    float kernel5[66][66];
+    float kernel6[66][66];
+    initializeKernel(kernel1);
+    initializeKernel(kernel2);
+    initializeKernel(kernel3);
+    initializeKernel(kernel4);
+    initializeKernel(kernel5);
+    initializeKernel(kernel6);
+    //showKernel(kernel1);
+    convolution(documentosProcesar[0].matriz, kernel1);
+    convolution(documentosProcesar[0].matriz, kernel2);
+    convolution(documentosProcesar[0].matriz, kernel3);
+    convolution(documentosProcesar[0].matriz, kernel4);
+    convolution(documentosProcesar[0].matriz, kernel5);
+    convolution(documentosProcesar[0].matriz, kernel6);
     //std::cin.get();
     return 0;
 }
+
