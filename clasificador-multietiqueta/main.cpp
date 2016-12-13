@@ -21,6 +21,17 @@ vector<char> vocabulario =
      '=', '<', '>', '(', ')', '[', ']', '{', '}'};
 int sizeVoc = vocabulario.size();
 
+struct kernel {
+    float **datos;
+    float size;
+    bool is1D = false;
+};
+struct convolution {
+    float **datos;
+    int x;
+    int y;
+};
+
 void getAllEtiquetas(string contenido, vector<string> &allEtiquetas) {
     regex subjectRxEtiquetas("<D>(.*?)</D>", regex_constants::icase);
     regex_iterator<string::iterator> itEtiqueta(contenido.begin(), contenido.end(), subjectRxEtiquetas);
@@ -155,42 +166,82 @@ float normalDistribution() {
     float num = desv * sqrt((float) 12 / cK) * (aux - (float) cK / 2) + media;
     return num;
 }
-void initializeKernel(float (&kernel)[66][66]) {
-    for (int i = 0; i < 66; i++) {
-        for (int j = 0; j < 66; j++) {
-            kernel[i][j] = normalDistribution();
+void initializeKernel(kernel &_kernel) {
+    int size = _kernel.size;
+    if (_kernel.is1D) {
+        _kernel.datos = new float*[1];
+        for (int i = 0; i < 1; i++) {
+            _kernel.datos[i] = new float[size];
+            for (int j = 0; j < size; j++) {
+                _kernel.datos[i][j] = normalDistribution();
+            }
+        }
+    }
+    else {
+        _kernel.datos = new float*[size];
+        for (int i = 0; i < size; i++) {
+            _kernel.datos[i] = new float[size];
+            for (int j = 0; j < size; j++) {
+                _kernel.datos[i][j] = normalDistribution();
+            }
         }
     }
 }
-void showKernel(float kernel[66][66]) {
-    for (int i = 0; i < 66; i++) {
-        for (int j = 0; j < 66; j++) {
-            cout << kernel[i][j] << "\t";
+void showKernel(kernel _kernel) {
+    int size1 = _kernel.is1D ? 1 : _kernel.size;
+    int size2 = _kernel.size;
+    for (int i = 0; i < size1; i++)
+    {
+        for (int j = 0; j < size2; j++) {
+            cout << _kernel.datos[i][j] << "\t";
+        }
+        cout << "\n";
+    }
+}
+void doConvolution(vector<vector<int>> &matriz, kernel _kernel, convolution &_conv) {
+    int stride = 1;
+
+    float sum = 0;
+    int from = 0;
+    int from_y = 0;
+    //cout << "[\n";
+    _conv.x = sizeVoc - _kernel.size + 1;
+    _conv.y = 800 - _kernel.size + 1;
+    _conv.datos = new float*[_conv.x];
+    _conv.datos[0] = new float[_conv.y];
+    for (from = 0; /*from < 800 - _kernel.size + 1 && */(from_y <= sizeVoc - _kernel.size); from++) {
+        for (int i = 0; i < _kernel.size; i++)
+        {
+            for (int j = 0; j < _kernel.size; j++) {
+                sum += matriz[i + from][j + from_y] * _kernel.datos[i][j];
+            }
+        }
+
+        //conv[from] = sum;
+        _conv.datos[from_y][from] = sum;
+        sum = 0;
+        if (from >= 800 - _kernel.size + 1) {
+            from = 0;
+            from_y++;
+            if (from_y <= sizeVoc - _kernel.size)
+                _conv.datos[from_y] = new float[_conv.y];
+        }
+    }
+}
+void showConvolution(convolution conv) {
+    for (int j = 0; j < conv.y; j++) {
+        for (int i = 0; i < conv.x; i++) {
+            cout << conv.datos[i][j]<< "\t";
         }
         cout << endl;
     }
 }
-void convolution(vector<vector<int>> &matriz, float (&kernel)[66][66]) {
-    float conv[735];
-    float sum = 0;
-    int from = 0;
-    int to = 66;
-    cout << "[\n";
-    for (from = 0; to < 800; from++) {
-        for (int i = 0; i < 66; i++)
-        {
-            for (int j = 0; j < 66; j++) {
-                sum += matriz[i + from][j] * kernel[i][j];
-            }
-        }
-        conv[from] = sum;
-        cout << sum << ", ";
-        sum = 0;
-        to++;
-    }
-    cout << "\n]\n";
-    //return conv;
-}
+
+/*float **max1DPooling(convolutions) {
+    float **pooling;
+    //for (int i = 0; i < 735)
+}*/
+
 int main(int argc, char** argv) {
     srand(time(NULL));
 
@@ -249,25 +300,29 @@ int main(int argc, char** argv) {
 
     // CONVOLUCIONES
 
-    float kernel1[66][66];
-    float kernel2[66][66];
-    float kernel3[66][66];
-    float kernel4[66][66];
-    float kernel5[66][66];
-    float kernel6[66][66];
+    kernel kernel1;
+    kernel1.size = 65;
     initializeKernel(kernel1);
-    initializeKernel(kernel2);
-    initializeKernel(kernel3);
-    initializeKernel(kernel4);
-    initializeKernel(kernel5);
-    initializeKernel(kernel6);
+    //float **kernel2 = initializeKernel(7, false);
+    //float **kernel3 = initializeKernel(7, false);
+    //float **kernel4 = initializeKernel(7, false);
+    //float **kernel5 = initializeKernel(7, false);
+    //float **kernel6 = initializeKernel(7, false);
+
     //showKernel(kernel1);
-    convolution(documentosProcesar[0].matriz, kernel1);
-    convolution(documentosProcesar[0].matriz, kernel2);
-    convolution(documentosProcesar[0].matriz, kernel3);
-    convolution(documentosProcesar[0].matriz, kernel4);
-    convolution(documentosProcesar[0].matriz, kernel5);
-    convolution(documentosProcesar[0].matriz, kernel6);
+
+    convolution *convolutions;
+
+    doConvolution(documentosProcesar[0].matriz, kernel1, convolutions[0]);
+    /*
+    convolutions[1] = convolution(documentosProcesar[0].matriz, kernel2);
+    convolutions[2] = convolution(documentosProcesar[0].matriz, kernel3);
+    convolutions[3] = convolution(documentosProcesar[0].matriz, kernel4);
+    convolutions[4] = convolution(documentosProcesar[0].matriz, kernel5);
+    convolutions[5] = convolution(documentosProcesar[0].matriz, kernel6);
+    float **pooling = max1DPooling(convolutions);
+    */
+    showConvolution(convolutions[0]);
     //std::cin.get();
     return 0;
 }
