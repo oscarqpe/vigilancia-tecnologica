@@ -13,24 +13,47 @@
 using namespace std;
 using namespace cimg_library;
 
-//vector<char> vocabulario = {'a', 'e', 'i', 'o', 'u'};
+#define ARRAY_SIZE(array) (sizeof((array))/sizeof((array[0])))
+
 vector<char> vocabulario =
     {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
      't', 'u', 'v', 'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ',', '.',
      ';', ':', '!', '?', '\'', '"', '|', '/', '_', '@', '#', '$', '%', '&', '^', '~', '+', '-', '*',
      '=', '<', '>', '(', ')', '[', ']', '{', '}'};
-int sizeVoc = vocabulario.size();
 
-struct kernel {
-    float **datos;
-    float size;
-    bool is1D = false;
-};
-struct convolution {
-    float **datos;
-    int x;
-    int y;
-};
+const int sizeVoc = 66;
+
+const int data_lenght = 924;
+const int outputSize = 256;
+const int kernel1 = 7;
+const int pool1 = 3;
+const int kernel2 = 7;
+const int pool2 = 3;
+const int kernel3 = 3;
+const int kernel4 = 3;
+const int kernel5 = 5;
+const int kernel6 = 3;
+const int pool6 = 3;
+
+float pesosC1[outputSize][sizeVoc][kernel1];
+float pesosC2[outputSize][outputSize][kernel2];
+float pesosC3[outputSize][outputSize][kernel3];
+float pesosC4[outputSize][outputSize][kernel4];
+float pesosC5[outputSize][outputSize][kernel5];
+float pesosC6[outputSize][outputSize][kernel6];
+
+float convolution1  [outputSize][data_lenght - kernel1 + 1];
+float pooling1      [outputSize][(data_lenght - kernel1 + 1) / pool1];
+float convolution2  [outputSize][((data_lenght - kernel1 + 1) / pool1) - kernel2 + 1];
+float pooling2      [outputSize][(((data_lenght - kernel1 + 1) / pool1) - kernel2 + 1) / pool2];
+float convolution3  [outputSize][((((data_lenght - kernel1 + 1) / pool1) - kernel2 + 1) / pool2) - kernel3 + 1];
+float convolution4  [outputSize][(((((data_lenght - kernel1 + 1) / pool1) - kernel2 + 1) / pool2) - kernel3 + 1) - kernel4 + 1];
+float convolution5  [outputSize][((((((data_lenght - kernel1 + 1) / pool1) - kernel2 + 1) / pool2) - kernel3 + 1) - kernel4 + 1)
+                                    - kernel5 + 1];
+float convolution6  [outputSize][(((((((data_lenght - kernel1 + 1) / pool1) - kernel2 + 1) / pool2) - kernel3 + 1) - kernel4 + 1)
+                                    - kernel5 + 1) - kernel6 + 1];
+float pooling6      [outputSize][((((((((data_lenght - kernel1 + 1) / pool1) - kernel2 + 1) / pool2) - kernel3 + 1) - kernel4 + 1)
+                                    - kernel5 + 1) - kernel6 + 1) / pool6];
 
 void getAllEtiquetas(string contenido, vector<string> &allEtiquetas) {
     regex subjectRxEtiquetas("<D>(.*?)</D>", regex_constants::icase);
@@ -166,81 +189,14 @@ float normalDistribution() {
     float num = desv * sqrt((float) 12 / cK) * (aux - (float) cK / 2) + media;
     return num;
 }
-void initializeKernel(kernel &_kernel) {
-    int size = _kernel.size;
-    if (_kernel.is1D) {
-        _kernel.datos = new float*[1];
-        for (int i = 0; i < 1; i++) {
-            _kernel.datos[i] = new float[size];
-            for (int j = 0; j < size; j++) {
-                _kernel.datos[i][j] = normalDistribution();
-            }
-        }
-    }
-    else {
-        _kernel.datos = new float*[size];
-        for (int i = 0; i < size; i++) {
-            _kernel.datos[i] = new float[size];
-            for (int j = 0; j < size; j++) {
-                _kernel.datos[i][j] = normalDistribution();
-            }
-        }
-    }
-}
-void showKernel(kernel _kernel) {
-    int size1 = _kernel.is1D ? 1 : _kernel.size;
-    int size2 = _kernel.size;
-    for (int i = 0; i < size1; i++)
-    {
-        for (int j = 0; j < size2; j++) {
-            cout << _kernel.datos[i][j] << "\t";
-        }
-        cout << "\n";
-    }
-}
-void doConvolution(vector<vector<int>> &matriz, kernel _kernel, convolution &_conv) {
-    int stride = 1;
-
-    float sum = 0;
-    int from = 0;
-    int from_y = 0;
-    //cout << "[\n";
-    _conv.x = sizeVoc - _kernel.size + 1;
-    _conv.y = 800 - _kernel.size + 1;
-    _conv.datos = new float*[_conv.x];
-    _conv.datos[0] = new float[_conv.y];
-    for (from = 0; /*from < 800 - _kernel.size + 1 && */(from_y <= sizeVoc - _kernel.size); from++) {
-        for (int i = 0; i < _kernel.size; i++)
-        {
-            for (int j = 0; j < _kernel.size; j++) {
-                sum += matriz[i + from][j + from_y] * _kernel.datos[i][j];
-            }
-        }
-
-        //conv[from] = sum;
-        _conv.datos[from_y][from] = sum;
-        sum = 0;
-        if (from >= 800 - _kernel.size + 1) {
-            from = 0;
-            from_y++;
-            if (from_y <= sizeVoc - _kernel.size)
-                _conv.datos[from_y] = new float[_conv.y];
-        }
-    }
-}
-void showConvolution(convolution conv) {
-    for (int j = 0; j < conv.y; j++) {
-        for (int i = 0; i < conv.x; i++) {
-            cout << conv.datos[i][j]<< "\t";
-        }
-        cout << endl;
-    }
-}
-
-/*float **max1DPooling(convolutions) {
-    float **pooling;
-    //for (int i = 0; i < 735)
-}*/
+void forwardConvolution(vector<vector<int>> matriz);
+void forwardFulltyConected();
+void backwardFullyConected();
+void backwardConvolution();
+void inicializarPesos();
+void showConvolution(int n);
+float maximo (float a, float b, float c);
+void showPooling(int n);
 
 int main(int argc, char** argv) {
     srand(time(NULL));
@@ -284,7 +240,7 @@ int main(int argc, char** argv) {
     vector<Documento> documentosProcesar;
     for (int i = 0; i < documentos.size(); i++)
     {
-        if (documentos[i].getContenido().size() >= 800 && documentos[i].getEtiquetas().size() > 0) {
+        if (documentos[i].getContenido().size() >= data_lenght && documentos[i].getEtiquetas().size() > 0) {
             cout << totalDoc + 1 << ") Texto:" << "[" << documentos[i].getEtiquetas().size() << " Etiquetas]" << endl;
             documentos[i].mostrarEtiquetas();
             //cout << documentos[i].getContenido() << endl;
@@ -297,33 +253,310 @@ int main(int argc, char** argv) {
         }
     }
     cout << total / totalDoc << endl;
+    // ################ TRAIN ############## //
+    inicializarPesos();
+    // FORWARD CONVOLUTION
 
-    // CONVOLUCIONES
+    forwardConvolution(documentos[0].matriz);
+    forwardFulltyConected();
+    backwardFullyConected();
+    backwardConvolution();
 
-    kernel kernel1;
-    kernel1.size = 65;
-    initializeKernel(kernel1);
-    //float **kernel2 = initializeKernel(7, false);
-    //float **kernel3 = initializeKernel(7, false);
-    //float **kernel4 = initializeKernel(7, false);
-    //float **kernel5 = initializeKernel(7, false);
-    //float **kernel6 = initializeKernel(7, false);
-
-    //showKernel(kernel1);
-
-    convolution *convolutions;
-
-    doConvolution(documentosProcesar[0].matriz, kernel1, convolutions[0]);
-    /*
-    convolutions[1] = convolution(documentosProcesar[0].matriz, kernel2);
-    convolutions[2] = convolution(documentosProcesar[0].matriz, kernel3);
-    convolutions[3] = convolution(documentosProcesar[0].matriz, kernel4);
-    convolutions[4] = convolution(documentosProcesar[0].matriz, kernel5);
-    convolutions[5] = convolution(documentosProcesar[0].matriz, kernel6);
-    float **pooling = max1DPooling(convolutions);
-    */
-    showConvolution(convolutions[0]);
     //std::cin.get();
     return 0;
 }
+void forwardConvolution(vector<vector<int>> matriz) {
+    // convolution 1
+    cout << "Input: " << matriz.size() <<endl;
+    float sum = 0;
+    int from = 0;
+    int numeroFiltros = ARRAY_SIZE(pesosC1);
+    int numeroSalidas = ARRAY_SIZE(pesosC1[0]);
+    int numeroKernel = ARRAY_SIZE(pesosC1[0][0]);
+    for (int z = 0; z < numeroFiltros; z++) {
+        for (from = 0; from < data_lenght - kernel1 + 1; from++) {
+            for (int i = 0; i < numeroSalidas; i++)
+            {
+                for (int j = 0; j < numeroKernel; j++) {
+                    sum += matriz[j][i + from] * pesosC1[z][i][j];
+                }
+            }
+            convolution1[z][from] = sum;
+            sum = 0;
+        }
+    }
+    //showConvolution(1);
+    // pooling 1
+    int frameSize = ARRAY_SIZE(convolution1);
+    int frameLenght = ARRAY_SIZE(convolution1[0]);
+    for (int i = 0; i < frameSize; i++) {
+        for (int j = 0, k = 0; j < frameLenght; j+=pool1, k++) {
+            pooling1[i][k] = maximo(convolution1[i][j], convolution1[i][j + 1], convolution1[i][j + 2]);
+        }
+    }
+    // showPooling(1);
+    // convolution 2
+    sum = 0;
+    from = 0;
+    numeroFiltros = ARRAY_SIZE(pesosC2);
+    numeroSalidas = ARRAY_SIZE(pesosC2[0]);
+    numeroKernel = ARRAY_SIZE(pesosC2[0][0]);
+    int inputLenght = ARRAY_SIZE(pooling1[0]);
+    for (int z = 0; z < numeroFiltros; z++) {
+        for (from = 0; from < inputLenght - kernel2 + 1; from++) {
+            for (int i = 0; i < numeroSalidas; i++)
+            {
+                for (int j = 0; j < numeroKernel; j++) {
+                    sum += pooling1[i + from][j] * pesosC2[z][i][j];
+                }
+            }
+            convolution2[z][from] = sum;
+            sum = 0;
+        }
+    }
+    //showConvolution(2);
+    // pooling 2
+    frameSize = ARRAY_SIZE(convolution2);
+    frameLenght = ARRAY_SIZE(convolution2[0]);
+    for (int i = 0; i < frameSize; i++) {
+        for (int j = 0, k = 0; j < frameLenght; j+=pool2, k++) {
+            pooling2[i][k] = maximo(convolution2[i][j], convolution2[i][j + 1], convolution2[i][j + 2]);
+        }
+    }
+    // showPooling(2);
+    // convolution 3
+    sum = 0;
+    from = 0;
+    numeroFiltros = ARRAY_SIZE(pesosC3);
+    numeroSalidas = ARRAY_SIZE(pesosC3[0]);
+    numeroKernel = ARRAY_SIZE(pesosC3[0][0]);
+    inputLenght = ARRAY_SIZE(pooling2[0]);
+    for (int z = 0; z < numeroFiltros; z++) {
+        for (from = 0; from < inputLenght - kernel3 + 1; from++) {
+            for (int i = 0; i < numeroSalidas; i++)
+            {
+                for (int j = 0; j < numeroKernel; j++) {
+                    sum += pooling2[i + from][j] * pesosC3[z][i][j];
+                }
+            }
+            convolution3[z][from] = sum;
+            sum = 0;
+        }
+    }
+    //showConvolution(3);
+    // convolution 4
+    sum = 0;
+    from = 0;
+    numeroFiltros = ARRAY_SIZE(pesosC4);
+    numeroSalidas = ARRAY_SIZE(pesosC4[0]);
+    numeroKernel = ARRAY_SIZE(pesosC4[0][0]);
+    inputLenght = ARRAY_SIZE(convolution3[0]);
+    for (int z = 0; z < numeroFiltros; z++) {
+        for (from = 0; from < inputLenght - kernel4 + 1; from++) {
+            for (int i = 0; i < numeroSalidas; i++)
+            {
+                for (int j = 0; j < numeroKernel; j++) {
+                    sum += convolution3[i + from][j] * pesosC4[z][i][j];
+                }
+            }
+            convolution4[z][from] = sum;
+            sum = 0;
+        }
+    }
+    //showConvolution(4);
+    // convolution 5
+    sum = 0;
+    from = 0;
+    numeroFiltros = ARRAY_SIZE(pesosC5);
+    numeroSalidas = ARRAY_SIZE(pesosC5[0]);
+    numeroKernel = ARRAY_SIZE(pesosC5[0][0]);
+    inputLenght = ARRAY_SIZE(convolution4[0]);
+    for (int z = 0; z < numeroFiltros; z++) {
+        for (from = 0; from < inputLenght - kernel5 + 1; from++) {
+            for (int i = 0; i < numeroSalidas; i++)
+            {
+                for (int j = 0; j < numeroKernel; j++) {
+                    sum += convolution4[i + from][j] * pesosC5[z][i][j];
+                }
+            }
+            convolution5[z][from] = sum;
+            sum = 0;
+        }
+    }
+    //showConvolution(5);
+    // convolution 6
+    sum = 0;
+    from = 0;
+    numeroFiltros = ARRAY_SIZE(pesosC6);
+    numeroSalidas = ARRAY_SIZE(pesosC6[0]);
+    numeroKernel = ARRAY_SIZE(pesosC6[0][0]);
+    inputLenght = ARRAY_SIZE(convolution5[0]);
+    for (int z = 0; z < numeroFiltros; z++) {
+        for (from = 0; from < inputLenght - kernel6 + 1; from++) {
+            for (int i = 0; i < numeroSalidas; i++)
+            {
+                for (int j = 0; j < numeroKernel; j++) {
+                    sum += convolution5[i + from][j] * pesosC6[z][i][j];
+                }
+            }
+            convolution6[z][from] = sum;
+            sum = 0;
+        }
+    }
+    //showConvolution(6);
+    // pooling 6
+    frameSize = ARRAY_SIZE(convolution6);
+    frameLenght = ARRAY_SIZE(convolution6[0]);
+    for (int i = 0; i < frameSize; i++) {
+        for (int j = 0, k = 0; j < frameLenght; j+=pool6, k++) {
+            pooling6[i][k] = maximo(convolution6[i][j], convolution6[i][j + 1], convolution6[i][j + 2]);
+        }
+    }
+    showPooling(6);
+}
+float maximo (float a, float b, float c) {
+    if (a >= b && a >= c) {
+        return a;
+    }
+    else if (b >= a && b >= c) {
+        return b;
+    }
+    else if (c >= a && c >= b) {
+        return c;
+    }
+    return a;
+}
 
+void showConvolution(int n) {
+    if (n == 1) {
+        int frameSize = ARRAY_SIZE(convolution1);
+        int frameLenght = ARRAY_SIZE(convolution1[0]);
+
+        for (int i = 0; i < frameSize; i++)
+        {
+            for (int j = 0; j < frameLenght; j++) {
+                cout << convolution1[i][j] << "\t";
+            }
+            cout << endl;
+        }
+        cout<<"[" <<frameSize<<","<<frameLenght<<"]\n";
+    }
+}
+void showPooling(int n) {
+    if (n == 1) {
+        int frameSize = ARRAY_SIZE(pooling1);
+        int frameLenght = ARRAY_SIZE(pooling1[0]);
+
+        for (int i = 0; i < frameSize; i++)
+        {
+            for (int j = 0; j < frameLenght; j++) {
+                cout << pooling1[i][j] << "\t";
+            }
+            cout << endl;
+        }
+        cout<<"[" << frameSize <<","<< frameLenght <<"]\n";
+    }
+    else if (n == 6) {
+        int frameSize = ARRAY_SIZE(pooling6);
+        int frameLenght = ARRAY_SIZE(pooling6[0]);
+
+        for (int i = 0; i < frameSize; i++)
+        {
+            for (int j = 0; j < frameLenght; j++) {
+                cout << pooling6[i][j] << "\t";
+            }
+            cout << endl;
+        }
+        cout<<"[" << frameSize <<","<< frameLenght <<"]\n";
+    }
+}
+
+void forwardFulltyConected() {
+
+}
+
+void backwardFullyConected() {
+
+}
+
+void backwardConvolution() {
+
+}
+void inicializarPesos() {
+    // pesos1
+    int x = ARRAY_SIZE(pesosC1);
+    int y = ARRAY_SIZE(pesosC1[0]);
+    int z = ARRAY_SIZE(pesosC1[0][0]);
+    cout<<"[" <<x<<","<<y<<","<<z<<"]\n";
+    for (int i = 0; i < x; i++) {
+        for (int j = 0; j < y; j++) {
+            for (int k = 0; k < z; k++) {
+                pesosC1[i][j][k] = normalDistribution();
+            }
+        }
+    }
+
+    // pesos 2
+    x = ARRAY_SIZE(pesosC2);
+    y = ARRAY_SIZE(pesosC2[0]);
+    z = ARRAY_SIZE(pesosC2[0][0]);
+    cout<<"[" <<x<<","<<y<<","<<z<<"]\n";
+    for (int i = 0; i < x; i++) {
+        for (int j = 0; j < y; j++) {
+            for (int k = 0; k < z; k++) {
+                pesosC2[i][j][k] = normalDistribution();
+            }
+        }
+    }
+
+    // pesos 3
+    x = ARRAY_SIZE(pesosC3);
+    y = ARRAY_SIZE(pesosC3[0]);
+    z = ARRAY_SIZE(pesosC3[0][0]);
+    cout<<"[" <<x<<","<<y<<","<<z<<"]\n";
+    for (int i = 0; i < x; i++) {
+        for (int j = 0; j < y; j++) {
+            for (int k = 0; k < z; k++) {
+                pesosC3[i][j][k] = normalDistribution();
+            }
+        }
+    }
+
+    // pesos 4
+    x = ARRAY_SIZE(pesosC4);
+    y = ARRAY_SIZE(pesosC4[0]);
+    z = ARRAY_SIZE(pesosC4[0][0]);
+    cout<<"[" <<x<<","<<y<<","<<z<<"]\n";
+    for (int i = 0; i < x; i++) {
+        for (int j = 0; j < y; j++) {
+            for (int k = 0; k < z; k++) {
+                pesosC4[i][j][k] = normalDistribution();
+            }
+        }
+    }
+    // pesos 5
+    x = ARRAY_SIZE(pesosC5);
+    y = ARRAY_SIZE(pesosC5[0]);
+    z = ARRAY_SIZE(pesosC5[0][0]);
+    cout<<"[" <<x<<","<<y<<","<<z<<"]\n";
+    for (int i = 0; i < x; i++) {
+        for (int j = 0; j < y; j++) {
+            for (int k = 0; k < z; k++) {
+                pesosC5[i][j][k] = normalDistribution();
+            }
+        }
+    }
+    // pesos 6
+    x = ARRAY_SIZE(pesosC6);
+    y = ARRAY_SIZE(pesosC6[0]);
+    z = ARRAY_SIZE(pesosC6[0][0]);
+    cout<<"[" <<x<<","<<y<<","<<z<<"]\n";
+    for (int i = 0; i < x; i++) {
+        for (int j = 0; j < y; j++) {
+            for (int k = 0; k < z; k++) {
+                pesosC6[i][j][k] = normalDistribution();
+            }
+        }
+    }
+
+}
