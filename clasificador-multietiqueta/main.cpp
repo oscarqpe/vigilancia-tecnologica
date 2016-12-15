@@ -52,8 +52,17 @@ float convolution5  [outputSize][((((((data_lenght - kernel1 + 1) / pool1) - ker
                                     - kernel5 + 1];
 float convolution6  [outputSize][(((((((data_lenght - kernel1 + 1) / pool1) - kernel2 + 1) / pool2) - kernel3 + 1) - kernel4 + 1)
                                     - kernel5 + 1) - kernel6 + 1];
-float pooling6      [outputSize][((((((((data_lenght - kernel1 + 1) / pool1) - kernel2 + 1) / pool2) - kernel3 + 1) - kernel4 + 1)
-                                    - kernel5 + 1) - kernel6 + 1) / pool6];
+float pooling6      [outputSize * (((((((((data_lenght - kernel1 + 1) / pool1) - kernel2 + 1) / pool2) - kernel3 + 1) - kernel4 + 1)
+                                    - kernel5 + 1) - kernel6 + 1) / pool6)];
+
+// FULLY CONNECTED
+float pesosF1[outputSize * (((((((((data_lenght - kernel1 + 1) / pool1) - kernel2 + 1) / pool2) - kernel3 + 1) - kernel4 + 1)
+                            - kernel5 + 1) - kernel6 + 1) / pool6)][1024];
+float hiddenLayer1[1024];
+float pesosF2[1024][1024];
+float hiddenLayer2[1024];
+float pesosF3[1024][24];
+float outputLayer[24];
 
 void getAllEtiquetas(string contenido, vector<string> &allEtiquetas) {
     regex subjectRxEtiquetas("<D>(.*?)</D>", regex_constants::icase);
@@ -197,6 +206,7 @@ void inicializarPesos();
 void showConvolution(int n);
 float maximo (float a, float b, float c);
 void showPooling(int n);
+float f_signoid(float numero);
 
 int main(int argc, char** argv) {
     srand(time(NULL));
@@ -281,7 +291,7 @@ void forwardConvolution(vector<vector<int>> matriz) {
                     sum += matriz[j][i + from] * pesosC1[z][i][j];
                 }
             }
-            convolution1[z][from] = sum;
+            convolution1[z][from] = sum < 0 ? 0 : sum;
             sum = 0;
         }
     }
@@ -294,7 +304,7 @@ void forwardConvolution(vector<vector<int>> matriz) {
             pooling1[i][k] = maximo(convolution1[i][j], convolution1[i][j + 1], convolution1[i][j + 2]);
         }
     }
-    // showPooling(1);
+    //showPooling(1);
     // convolution 2
     sum = 0;
     from = 0;
@@ -310,7 +320,7 @@ void forwardConvolution(vector<vector<int>> matriz) {
                     sum += pooling1[i + from][j] * pesosC2[z][i][j];
                 }
             }
-            convolution2[z][from] = sum;
+            convolution2[z][from] = sum < 0 ? 0 : sum;
             sum = 0;
         }
     }
@@ -339,7 +349,7 @@ void forwardConvolution(vector<vector<int>> matriz) {
                     sum += pooling2[i + from][j] * pesosC3[z][i][j];
                 }
             }
-            convolution3[z][from] = sum;
+            convolution3[z][from] = sum < 0 ? 0 : sum;
             sum = 0;
         }
     }
@@ -359,7 +369,7 @@ void forwardConvolution(vector<vector<int>> matriz) {
                     sum += convolution3[i + from][j] * pesosC4[z][i][j];
                 }
             }
-            convolution4[z][from] = sum;
+            convolution4[z][from] = sum < 0 ? 0 : sum;
             sum = 0;
         }
     }
@@ -379,7 +389,7 @@ void forwardConvolution(vector<vector<int>> matriz) {
                     sum += convolution4[i + from][j] * pesosC5[z][i][j];
                 }
             }
-            convolution5[z][from] = sum;
+            convolution5[z][from] = sum < 0 ? 0 : sum;
             sum = 0;
         }
     }
@@ -399,7 +409,7 @@ void forwardConvolution(vector<vector<int>> matriz) {
                     sum += convolution5[i + from][j] * pesosC6[z][i][j];
                 }
             }
-            convolution6[z][from] = sum;
+            convolution6[z][from] = sum < 0 ? 0 : sum;
             sum = 0;
         }
     }
@@ -407,72 +417,117 @@ void forwardConvolution(vector<vector<int>> matriz) {
     // pooling 6
     frameSize = ARRAY_SIZE(convolution6);
     frameLenght = ARRAY_SIZE(convolution6[0]);
+    int inputFully = 0;
     for (int i = 0; i < frameSize; i++) {
         for (int j = 0, k = 0; j < frameLenght; j+=pool6, k++) {
-            pooling6[i][k] = maximo(convolution6[i][j], convolution6[i][j + 1], convolution6[i][j + 2]);
+            pooling6[inputFully] = maximo(convolution6[i][j], convolution6[i][j + 1], convolution6[i][j + 2]);
+            inputFully++;
         }
     }
     showPooling(6);
-}
-float maximo (float a, float b, float c) {
-    if (a >= b && a >= c) {
-        return a;
-    }
-    else if (b >= a && b >= c) {
-        return b;
-    }
-    else if (c >= a && c >= b) {
-        return c;
-    }
-    return a;
+
 }
 
 void showConvolution(int n) {
+    int frameSize = 0;
+    int frameLenght = 0;
     if (n == 1) {
-        int frameSize = ARRAY_SIZE(convolution1);
-        int frameLenght = ARRAY_SIZE(convolution1[0]);
-
-        for (int i = 0; i < frameSize; i++)
-        {
-            for (int j = 0; j < frameLenght; j++) {
-                cout << convolution1[i][j] << "\t";
-            }
-            cout << endl;
-        }
-        cout<<"[" <<frameSize<<","<<frameLenght<<"]\n";
+        frameSize = ARRAY_SIZE(convolution1);
+        frameLenght = ARRAY_SIZE(convolution1[0]);
+    } else if (n == 2) {
+        frameSize = ARRAY_SIZE(convolution2);
+        frameLenght = ARRAY_SIZE(convolution2[0]);
+    } else if (n == 3) {
+        frameSize = ARRAY_SIZE(convolution3);
+        frameLenght = ARRAY_SIZE(convolution3[0]);
+    } else if (n == 4) {
+        frameSize = ARRAY_SIZE(convolution4);
+        frameLenght = ARRAY_SIZE(convolution4[0]);
+    } else if (n == 5) {
+        frameSize = ARRAY_SIZE(convolution5);
+        frameLenght = ARRAY_SIZE(convolution5[0]);
+    } else if (n == 6) {
+        frameSize = ARRAY_SIZE(convolution6);
+        frameLenght = ARRAY_SIZE(convolution6[0]);
     }
+    for (int i = 0; i < frameSize; i++)
+    {
+        for (int j = 0; j < frameLenght; j++) {
+            if (n == 1) cout << convolution1[i][j] << "\t";
+            else if (n == 2) cout << convolution2[i][j] << "\t";
+            else if (n == 3) cout << convolution3[i][j] << "\t";
+            else if (n == 4) cout << convolution4[i][j] << "\t";
+            else if (n == 5) cout << convolution5[i][j] << "\t";
+            else if (n == 6) cout << convolution6[i][j] << "\t";
+        }
+        cout << endl;
+    }
+    cout<<"[" <<frameSize<<","<<frameLenght<<"]\n";
 }
 void showPooling(int n) {
-    if (n == 1) {
-        int frameSize = ARRAY_SIZE(pooling1);
-        int frameLenght = ARRAY_SIZE(pooling1[0]);
-
-        for (int i = 0; i < frameSize; i++)
-        {
-            for (int j = 0; j < frameLenght; j++) {
-                cout << pooling1[i][j] << "\t";
-            }
-            cout << endl;
-        }
-        cout<<"[" << frameSize <<","<< frameLenght <<"]\n";
-    }
-    else if (n == 6) {
+    if (n == 6) {
         int frameSize = ARRAY_SIZE(pooling6);
-        int frameLenght = ARRAY_SIZE(pooling6[0]);
+        for (int i = 0; i < frameSize; i++)
+        {
+            cout << pooling6[i] << "\t";
+        }
+    } else {
+        int frameSize = 0;
+        int frameLenght = 0;
 
+        if (n == 1) {
+            frameSize = ARRAY_SIZE(pooling1);
+            frameLenght = ARRAY_SIZE(pooling1[0]);
+        } else if (n == 2) {
+            frameSize = ARRAY_SIZE(pooling2);
+            frameLenght = ARRAY_SIZE(pooling2[0]);
+        }
         for (int i = 0; i < frameSize; i++)
         {
             for (int j = 0; j < frameLenght; j++) {
-                cout << pooling6[i][j] << "\t";
+                if (n == 1) cout << pooling1[i][j] << "\t";
+                else if (n == 2) cout << pooling2[i][j] << "\t";
             }
             cout << endl;
         }
-        cout<<"[" << frameSize <<","<< frameLenght <<"]\n";
     }
 }
 
 void forwardFulltyConected() {
-
+    // fully 1
+    int inputSize = ARRAY_SIZE(pesosF1);
+    int outputSize = ARRAY_SIZE(pesosF1[0]);
+    float sum = 0;
+    for (int i = 0; i < outputSize; i++) {
+        for (int j = 0; j < inputSize; j++) {
+            sum += pesosF1[j][i] * pooling6[j];
+        }
+        hiddenLayer1[i] = f_signoid(sum);
+        sum = 0;
+    }
+    // fully 2
+    inputSize = ARRAY_SIZE(pesosF2);
+    outputSize = ARRAY_SIZE(pesosF2[0]);
+    sum = 0;
+    for (int i = 0; i < outputSize; i++) {
+        for (int j = 0; j < inputSize; j++) {
+            sum += pesosF2[j][i] * hiddenLayer1[j];
+        }
+        hiddenLayer2[i] = f_signoid(sum);
+        sum = 0;
+    }
+    // fully 3
+    inputSize = ARRAY_SIZE(pesosF3);
+    outputSize = ARRAY_SIZE(pesosF3[0]);
+    sum = 0;
+    for (int i = 0; i < outputSize; i++) {
+        for (int j = 0; j < inputSize; j++) {
+            sum += pesosF3[j][i] * hiddenLayer2[j];
+        }
+        outputLayer[i] = f_signoid(sum);
+        cout << outputLayer[i] << endl;
+        sum = 0;
+    }
 }
 
 void backwardFullyConected() {
@@ -558,5 +613,49 @@ void inicializarPesos() {
             }
         }
     }
+    // pesos fully
+    // persos f1
+    x = ARRAY_SIZE(pesosF1);
+    y = ARRAY_SIZE(pesosF1[0]);
+    cout<<"[" <<x<<","<<y<<"]\n";
+    for (int i = 0; i < x; i++) {
+        for (int j = 0; j < y; j++) {
+            pesosF1[i][j] = normalDistribution();
+        }
+    }
+    // persos f2
+    x = ARRAY_SIZE(pesosF2);
+    y = ARRAY_SIZE(pesosF2[0]);
+    cout<<"[" <<x<<","<<y<<"]\n";
+    for (int i = 0; i < x; i++) {
+        for (int j = 0; j < y; j++) {
+            pesosF2[i][j] = normalDistribution();
+        }
+    }
+    // persos f3
+    x = ARRAY_SIZE(pesosF3);
+    y = ARRAY_SIZE(pesosF3[0]);
+    cout<<"[" <<x<<","<<y<<"]\n";
+    for (int i = 0; i < x; i++) {
+        for (int j = 0; j < y; j++) {
+            pesosF3[i][j] = normalDistribution();
+        }
+    }
+}
+float maximo (float a, float b, float c) {
+    if (a >= b && a >= c) {
+        return a;
+    }
+    else if (b >= a && b >= c) {
+        return b;
+    }
+    else if (c >= a && c >= b) {
+        return c;
+    }
+    return a;
+}
 
+float f_signoid(float numero)
+{
+    return 1 / (1 + pow(exp(1), -1 * numero));
 }
