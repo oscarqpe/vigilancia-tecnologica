@@ -13,7 +13,7 @@
 using namespace std;
 using namespace cimg_library;
 
-#define ARRAY_SIZE(array) (sizeof((array))/sizeof((array[0])))
+#define ARRAY_SIZE(array) (sizeof((array)) / sizeof((array[0])))
 
 vector<char> vocabulario =
     {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
@@ -63,6 +63,10 @@ float pesosF2[1024][1024];
 float hiddenLayer2[1024];
 float pesosF3[1024][24];
 float outputLayer[24];
+float target[24] = {0.01, 0.99, 0.01, 0.99, 0.01, 0.01, 0.01, 0.01, 0.99, 0.01,
+                   0.01, 0.99, 0.99, 0.99, 0.01, 0.99, 0.99, 0.01, 0.01, 0.01,
+                   0.01, 0.99, 0.01, 0.99};
+float totalError = 0;
 
 void getAllEtiquetas(string contenido, vector<string> &allEtiquetas) {
     regex subjectRxEtiquetas("<D>(.*?)</D>", regex_constants::icase);
@@ -203,6 +207,7 @@ void forwardFulltyConected();
 void backwardFullyConected();
 void backwardConvolution();
 void inicializarPesos();
+void calcTotalError();
 void showConvolution(int n);
 float maximo (float a, float b, float c);
 void showPooling(int n);
@@ -269,6 +274,7 @@ int main(int argc, char** argv) {
 
     forwardConvolution(documentos[0].matriz);
     forwardFulltyConected();
+    calcTotalError();
     backwardFullyConected();
     backwardConvolution();
 
@@ -427,6 +433,13 @@ void forwardConvolution(vector<vector<int>> matriz) {
     showPooling(6);
 
 }
+void calcTotalError() {
+    int sizeOutput = ARRAY_SIZE(outputLayer);
+    totalError = 0;
+    for (int i = 0; i < sizeOutput; i++) {
+        totalError += (1 / 2 ) * (target[i] - outputLayer[i]) * (target[i] - outputLayer[i]);
+    }
+}
 
 void showConvolution(int n) {
     int frameSize = 0;
@@ -531,6 +544,7 @@ void forwardFulltyConected() {
 }
 
 void backwardFullyConected() {
+    // back hiddenlayer 2
 
 }
 
