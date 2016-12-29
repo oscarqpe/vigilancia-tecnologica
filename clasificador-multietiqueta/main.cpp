@@ -35,6 +35,8 @@ const int kernel5 = 5;
 const int kernel6 = 3;
 const int pool6 = 3;
 
+const float learningRate = 0.5;
+
 float pesosC1[outputSize][sizeVoc][kernel1];
 float pesosC2[outputSize][outputSize][kernel2];
 float pesosC3[outputSize][outputSize][kernel3];
@@ -58,15 +60,25 @@ float pooling6      [outputSize * (((((((((data_lenght - kernel1 + 1) / pool1) -
 // FULLY CONNECTED
 float pesosF1[outputSize * (((((((((data_lenght - kernel1 + 1) / pool1) - kernel2 + 1) / pool2) - kernel3 + 1) - kernel4 + 1)
                             - kernel5 + 1) - kernel6 + 1) / pool6)][1024];
-float hiddenLayer1[1024];
+float hiddenLayer1Net[1024];
+float hiddenLayer1Out[1024];
+float hiddenLayer1Del[1024];
 float pesosF2[1024][1024];
-float hiddenLayer2[1024];
+float hiddenLayer2Net[1024];
+float hiddenLayer2Out[1024];
+float hiddenLayer2Del[1024];
 float pesosF3[1024][24];
-float outputLayer[24];
+float outputLayerNet[24];
+float outputLayerOut[24];
+float outputLayerDel[24];
+
 float target[24] = {0.01, 0.99, 0.01, 0.99, 0.01, 0.01, 0.01, 0.01, 0.99, 0.01,
                    0.01, 0.99, 0.99, 0.99, 0.01, 0.99, 0.99, 0.01, 0.01, 0.01,
                    0.01, 0.99, 0.01, 0.99};
-float totalError = 0;
+/*float target[24] = {0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01,
+                   0.01, 0.01, 0.01, 0.01, 0.01, 0.99, 0.01, 0.01, 0.01, 0.01,
+                   0.01, 0.01, 0.01, 0.01};*/
+double totalError = 0.0;
 
 void getAllEtiquetas(string contenido, vector<string> &allEtiquetas) {
     regex subjectRxEtiquetas("<D>(.*?)</D>", regex_constants::icase);
@@ -209,6 +221,7 @@ void backwardConvolution();
 void inicializarPesos();
 void calcTotalError();
 void showConvolution(int n);
+void showResult();
 float maximo (float a, float b, float c);
 void showPooling(int n);
 float f_signoid(float numero);
@@ -277,12 +290,19 @@ int main(int argc, char** argv) {
     calcTotalError();
     backwardFullyConected();
     backwardConvolution();
-
+    showResult();
     //std::cin.get();
     return 0;
 }
+void showResult() {
+    cout << ":::::::::::: RESULTS ::::::::::::" << endl;
+    cout << "Error Total: " << totalError << endl;
+}
+
 void forwardConvolution(vector<vector<int>> matriz) {
     // convolution 1
+    cout << "-> START CONVOLUTIONS" << endl;
+    cout << "-> CONVOLUTION 1" << endl;
     cout << "Input: " << matriz.size() <<endl;
     float sum = 0;
     int from = 0;
@@ -303,6 +323,7 @@ void forwardConvolution(vector<vector<int>> matriz) {
     }
     //showConvolution(1);
     // pooling 1
+    cout << "-> POOLING 1" << endl;
     int frameSize = ARRAY_SIZE(convolution1);
     int frameLenght = ARRAY_SIZE(convolution1[0]);
     for (int i = 0; i < frameSize; i++) {
@@ -312,6 +333,7 @@ void forwardConvolution(vector<vector<int>> matriz) {
     }
     //showPooling(1);
     // convolution 2
+    cout << "-> CONVOLUTION 2" << endl;
     sum = 0;
     from = 0;
     numeroFiltros = ARRAY_SIZE(pesosC2);
@@ -332,6 +354,7 @@ void forwardConvolution(vector<vector<int>> matriz) {
     }
     //showConvolution(2);
     // pooling 2
+    cout << "-> POOLING 2" << endl;
     frameSize = ARRAY_SIZE(convolution2);
     frameLenght = ARRAY_SIZE(convolution2[0]);
     for (int i = 0; i < frameSize; i++) {
@@ -341,6 +364,7 @@ void forwardConvolution(vector<vector<int>> matriz) {
     }
     // showPooling(2);
     // convolution 3
+    cout << "-> CONVOLUTION 3" << endl;
     sum = 0;
     from = 0;
     numeroFiltros = ARRAY_SIZE(pesosC3);
@@ -361,6 +385,7 @@ void forwardConvolution(vector<vector<int>> matriz) {
     }
     //showConvolution(3);
     // convolution 4
+    cout << "-> CONVOLUTION 4" << endl;
     sum = 0;
     from = 0;
     numeroFiltros = ARRAY_SIZE(pesosC4);
@@ -381,6 +406,7 @@ void forwardConvolution(vector<vector<int>> matriz) {
     }
     //showConvolution(4);
     // convolution 5
+    cout << "-> CONVOLUTION 5" << endl;
     sum = 0;
     from = 0;
     numeroFiltros = ARRAY_SIZE(pesosC5);
@@ -401,6 +427,7 @@ void forwardConvolution(vector<vector<int>> matriz) {
     }
     //showConvolution(5);
     // convolution 6
+    cout << "-> CONVOLUTION 6" << endl;
     sum = 0;
     from = 0;
     numeroFiltros = ARRAY_SIZE(pesosC6);
@@ -421,6 +448,7 @@ void forwardConvolution(vector<vector<int>> matriz) {
     }
     //showConvolution(6);
     // pooling 6
+    cout << "-> POOLING 6" << endl;
     frameSize = ARRAY_SIZE(convolution6);
     frameLenght = ARRAY_SIZE(convolution6[0]);
     int inputFully = 0;
@@ -430,14 +458,17 @@ void forwardConvolution(vector<vector<int>> matriz) {
             inputFully++;
         }
     }
-    showPooling(6);
+    //showPooling(6);
 
 }
 void calcTotalError() {
-    int sizeOutput = ARRAY_SIZE(outputLayer);
-    totalError = 0;
+    int sizeOutput = ARRAY_SIZE(outputLayerNet);
+    totalError = 0.0;
     for (int i = 0; i < sizeOutput; i++) {
-        totalError += (1 / 2 ) * (target[i] - outputLayer[i]) * (target[i] - outputLayer[i]);
+        cout << target[i] << " - " << outputLayerOut[i] << " = " << target[i] - outputLayerOut[i] << endl;
+        totalError = totalError + (0.5 ) * (target[i] - outputLayerOut[i]) *
+                (target[i] - outputLayerOut[i]);
+        cout << "Total: " << totalError << endl;
     }
 }
 
@@ -507,7 +538,9 @@ void showPooling(int n) {
 }
 
 void forwardFulltyConected() {
+    cout << "-> START FULLY CONNECTED" << endl;
     // fully 1
+    cout << "-> HIDDEN LAYER 1" << endl;
     int inputSize = ARRAY_SIZE(pesosF1);
     int outputSize = ARRAY_SIZE(pesosF1[0]);
     float sum = 0;
@@ -515,37 +548,97 @@ void forwardFulltyConected() {
         for (int j = 0; j < inputSize; j++) {
             sum += pesosF1[j][i] * pooling6[j];
         }
-        hiddenLayer1[i] = f_signoid(sum);
+        hiddenLayer1Net[i] = sum;
+        hiddenLayer1Out[i] = f_signoid(sum);
         sum = 0;
     }
     // fully 2
+    cout << "-> HIDDEN LAYER 2" << endl;
     inputSize = ARRAY_SIZE(pesosF2);
     outputSize = ARRAY_SIZE(pesosF2[0]);
     sum = 0;
     for (int i = 0; i < outputSize; i++) {
         for (int j = 0; j < inputSize; j++) {
-            sum += pesosF2[j][i] * hiddenLayer1[j];
+            sum += pesosF2[j][i] * hiddenLayer1Out[j];
         }
-        hiddenLayer2[i] = f_signoid(sum);
+        hiddenLayer2Net[i] = sum;
+        hiddenLayer2Out[i] = f_signoid(sum);
         sum = 0;
     }
     // fully 3
+    cout << "-> OUTPUT LAYER" << endl;
     inputSize = ARRAY_SIZE(pesosF3);
     outputSize = ARRAY_SIZE(pesosF3[0]);
     sum = 0;
     for (int i = 0; i < outputSize; i++) {
         for (int j = 0; j < inputSize; j++) {
-            sum += pesosF3[j][i] * hiddenLayer2[j];
+            sum += pesosF3[j][i] * hiddenLayer2Out[j];
         }
-        outputLayer[i] = f_signoid(sum);
-        cout << outputLayer[i] << endl;
+        outputLayerNet[i] = sum;
+        outputLayerOut[i] = f_signoid(sum);
+        //cout << outputLayerOut[i] << endl;
         sum = 0;
     }
 }
 
 void backwardFullyConected() {
-    // back hiddenlayer 2
-
+    cout << "-> START BACKWARD FULLY CONNECTED" << endl;
+    //::::::::::: UPDATE DELTAS ::::::::::::::::::::://
+    cout << "-> UPDATE DELTAS" << endl;
+    // DELTAS OUTPUT LAYER
+    int outputSize = ARRAY_SIZE(pesosF3[0]);
+    for (int i = 0; i < outputSize; i++) {
+        outputLayerDel[i] = -1 * (target[i] - outputLayerOut[i]) * outputLayerOut[i]
+                * (1 - outputLayerOut[i]);
+    }
+    // DELTAS HIDDEN LAYER 2
+    outputSize = ARRAY_SIZE(pesosF2[0]);
+    int weightsSize = ARRAY_SIZE(pesosF3[0]);
+    for (int i = 0; i < outputSize; i++) {
+        float sum = 0;
+        for (int j = 0; j < weightsSize; j++) {
+            sum += outputLayerDel[j] * pesosF3[i][j];
+        }
+        hiddenLayer2Del[i] = sum * hiddenLayer2Out[i]
+                * (1 - hiddenLayer2Out[i]);
+    }
+    // DELTAS HIDDEN LAYER 1
+    outputSize = ARRAY_SIZE(pesosF1[0]);
+    weightsSize = ARRAY_SIZE(pesosF2[0]);
+    for (int i = 0; i < outputSize; i++) {
+        float sum = 0;
+        for (int j = 0; j < weightsSize; j++) {
+            sum += hiddenLayer2Del[j] * pesosF2[i][j];
+        }
+        hiddenLayer1Del[i] = sum * hiddenLayer1Out[i]
+                * (1 - hiddenLayer1Out[i]);
+    }
+    //::::::::::: UPDATE WEIGHTS :::::::::::://
+    cout << "-> UPDATE WEIGHTS" << endl;
+    // WEIGHTS HIDDEN LAYER 1
+    int inputSize = ARRAY_SIZE(pesosF1);
+    outputSize = ARRAY_SIZE(pesosF1[0]);
+    for (int i = 0; i < inputSize; i++) {
+        for (int j = 0; j < outputSize; j++) {
+            pesosF1[i][j] += learningRate * -1 * pooling6[i] * hiddenLayer1Del[j];
+        }
+    }
+    // WEIGHTS HIDDEN LAYER 2
+    inputSize = ARRAY_SIZE(pesosF2);
+    outputSize = ARRAY_SIZE(pesosF2[0]);
+    for (int i = 0; i < inputSize; i++) {
+        for (int j = 0; j < outputSize; j++) {
+            pesosF2[i][j] += learningRate * -1 * hiddenLayer1Out[i] * hiddenLayer2Del[j];
+        }
+    }
+    // WEIGHTS OUTPUT LAYER
+    inputSize = ARRAY_SIZE(pesosF3);
+    outputSize = ARRAY_SIZE(pesosF3[0]);
+    for (int i = 0; i < inputSize; i++) {
+        for (int j = 0; j < outputSize; j++) {
+            pesosF3[i][j] += learningRate * -1 * hiddenLayer2Out[i] * outputLayerDel[j];
+        }
+    }
 }
 
 void backwardConvolution() {
