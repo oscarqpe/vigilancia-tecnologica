@@ -1,3 +1,6 @@
+
+#include <pugixml.hpp>
+
 #include <iostream>
 #include <vector>
 #include <regex>
@@ -10,6 +13,7 @@
 
 #include "Documento.h"
 
+using namespace pugi;
 using namespace std;
 using namespace cimg_library;
 
@@ -22,7 +26,8 @@ vector<char> vocabulario =
      '=', '<', '>', '(', ')', '[', ']', '{', '}'};
 
 const int sizeVoc = 66;
-
+int labels_size = 0;
+const int salidas = 672;
 const int data_lenght = 924;
 const int outputSize = 256;
 const int kernel1 = 7;
@@ -45,16 +50,28 @@ float pesosC5[outputSize][outputSize][kernel5];
 float pesosC6[outputSize][outputSize][kernel6];
 
 float convolution1  [outputSize][data_lenght - kernel1 + 1];
+float convolution1Del  [outputSize][data_lenght - kernel1 + 1];
 float pooling1      [outputSize][(data_lenght - kernel1 + 1) / pool1];
+float pooling1Del      [outputSize][(data_lenght - kernel1 + 1) / pool1];
 float convolution2  [outputSize][((data_lenght - kernel1 + 1) / pool1) - kernel2 + 1];
+float convolution2Del  [outputSize][((data_lenght - kernel1 + 1) / pool1) - kernel2 + 1];
 float pooling2      [outputSize][(((data_lenght - kernel1 + 1) / pool1) - kernel2 + 1) / pool2];
+float pooling2Del      [outputSize][(((data_lenght - kernel1 + 1) / pool1) - kernel2 + 1) / pool2];
 float convolution3  [outputSize][((((data_lenght - kernel1 + 1) / pool1) - kernel2 + 1) / pool2) - kernel3 + 1];
+float convolution3Del  [outputSize][((((data_lenght - kernel1 + 1) / pool1) - kernel2 + 1) / pool2) - kernel3 + 1];
 float convolution4  [outputSize][(((((data_lenght - kernel1 + 1) / pool1) - kernel2 + 1) / pool2) - kernel3 + 1) - kernel4 + 1];
+float convolution4Del  [outputSize][(((((data_lenght - kernel1 + 1) / pool1) - kernel2 + 1) / pool2) - kernel3 + 1) - kernel4 + 1];
 float convolution5  [outputSize][((((((data_lenght - kernel1 + 1) / pool1) - kernel2 + 1) / pool2) - kernel3 + 1) - kernel4 + 1)
+                                    - kernel5 + 1];
+float convolution5Del  [outputSize][((((((data_lenght - kernel1 + 1) / pool1) - kernel2 + 1) / pool2) - kernel3 + 1) - kernel4 + 1)
                                     - kernel5 + 1];
 float convolution6  [outputSize][(((((((data_lenght - kernel1 + 1) / pool1) - kernel2 + 1) / pool2) - kernel3 + 1) - kernel4 + 1)
                                     - kernel5 + 1) - kernel6 + 1];
+float convolution6Del  [outputSize][(((((((data_lenght - kernel1 + 1) / pool1) - kernel2 + 1) / pool2) - kernel3 + 1) - kernel4 + 1)
+                                    - kernel5 + 1) - kernel6 + 1];
 float pooling6      [outputSize * (((((((((data_lenght - kernel1 + 1) / pool1) - kernel2 + 1) / pool2) - kernel3 + 1) - kernel4 + 1)
+                                    - kernel5 + 1) - kernel6 + 1) / pool6)];
+float pooling6Del   [outputSize * (((((((((data_lenght - kernel1 + 1) / pool1) - kernel2 + 1) / pool2) - kernel3 + 1) - kernel4 + 1)
                                     - kernel5 + 1) - kernel6 + 1) / pool6)];
 
 // FULLY CONNECTED
@@ -67,10 +84,10 @@ float pesosF2[1024][1024];
 float hiddenLayer2Net[1024];
 float hiddenLayer2Out[1024];
 float hiddenLayer2Del[1024];
-float pesosF3[1024][24];
-float outputLayerNet[24];
-float outputLayerOut[24];
-float outputLayerDel[24];
+float pesosF3[1024][salidas];
+float outputLayerNet[salidas];
+float outputLayerOut[salidas];
+float outputLayerDel[salidas];
 
 float target[24] = {0.01, 0.99, 0.01, 0.99, 0.01, 0.01, 0.01, 0.01, 0.99, 0.01,
                    0.01, 0.99, 0.99, 0.99, 0.01, 0.99, 0.99, 0.01, 0.01, 0.01,
@@ -80,101 +97,22 @@ float target[24] = {0.01, 0.99, 0.01, 0.99, 0.01, 0.01, 0.01, 0.01, 0.99, 0.01,
                    0.01, 0.01, 0.01, 0.01};*/
 double totalError = 0.0;
 
-void getAllEtiquetas(string contenido, vector<string> &allEtiquetas) {
-    regex subjectRxEtiquetas("<D>(.*?)</D>", regex_constants::icase);
-    regex_iterator<string::iterator> itEtiqueta(contenido.begin(), contenido.end(), subjectRxEtiquetas);
-    regex_iterator<string::iterator> end;
-    while (itEtiqueta != end) {
-        string etiqueta = itEtiqueta->str();
-        allEtiquetas.push_back(etiqueta);
-        ++itEtiqueta;
-    }
-}
-vector<string> getEtiquetas (string contenido) {
-    vector<string> allEtiquetas;
-    smatch OuMatches;
-
-    regex_iterator<string::iterator> end;
-
-    regex subjectRxTopic("<topics>(.*?)</topics>", regex_constants::icase);
-    regex_iterator<string::iterator> itTopic(contenido.begin(), contenido.end(), subjectRxTopic);
-    while (itTopic != end)
-    {
-        string etiquetas = itTopic->str();
-        getAllEtiquetas(etiquetas, allEtiquetas);
-        ++itTopic;
-    }
-
-    regex subjectRxPlace("<places>(.*?)</places>", regex_constants::icase);
-    regex_iterator<string::iterator> itPlace(contenido.begin(), contenido.end(), subjectRxPlace);
-    while (itPlace != end)
-    {
-        string etiquetas = itPlace->str();
-        getAllEtiquetas(etiquetas, allEtiquetas);
-        ++itPlace;
-    }
-
-    regex subjectRxPeople("<people>(.*?)</people>", regex_constants::icase);
-    regex_iterator<string::iterator> itPeople(contenido.begin(), contenido.end(), subjectRxPeople);
-    while (itPeople != end)
-    {
-        string etiquetas = itPeople->str();
-        getAllEtiquetas(etiquetas, allEtiquetas);
-        ++itPeople;
-    }
-
-    regex subjectRxOrg("<orgs>(.*?)</orgs>", regex_constants::icase);
-    regex_iterator<string::iterator> itOrg(contenido.begin(), contenido.end(), subjectRxOrg);
-    while (itOrg != end)
-    {
-        string etiquetas = itOrg->str();
-        getAllEtiquetas(etiquetas, allEtiquetas);
-        ++itOrg;
-    }
-
-    regex subjectRxExchange("<exchanges>(.*?)</exchanges>", regex_constants::icase);
-    regex_iterator<string::iterator> itExchange(contenido.begin(), contenido.end(), subjectRxExchange);
-    while (itExchange != end)
-    {
-        string etiquetas = itExchange->str();
-        getAllEtiquetas(etiquetas, allEtiquetas);
-        ++itExchange;
-    }
-
-    regex subjectRxCompany("<companies>(.*?)</companies>", regex_constants::icase);
-    regex_iterator<string::iterator> itCompany(contenido.begin(), contenido.end(), subjectRxCompany);
-    while (itCompany != end)
-    {
-        string etiquetas = itCompany->str();
-        getAllEtiquetas(etiquetas, allEtiquetas);
-        ++itCompany;
-    }
-    return allEtiquetas;
-}
-string getContenido(string contenido) {
-    string body;
-    smatch OuMatches;
-    regex_iterator<string::iterator> end;
-    regex subjectRxBody("<body>(.*?)</body>", regex_constants::icase);
-    regex_iterator<string::iterator> itBody(contenido.begin(), contenido.end(), subjectRxBody);
-    while (itBody != end)
-    {
-        body = itBody->str();
-        ++itBody;
-    }
-    return body;
-}
-void encodeOneHot(vector<vector<int>> &matriz, string document) {
-    for (int i = 0; i < document.size(); i++)
-    {
-        //cout << texto.at(i) << " : ";
-
-        int pos = find(vocabulario.begin(), vocabulario.end(), document.at(i)) - vocabulario.begin();
-        //cout << pos << endl;
-        matriz[i].resize(sizeVoc);
-        if (pos != sizeVoc) {
-
-            matriz[i][sizeVoc - pos - 1] = 1;
+void encodeOneHot(vector<vector<float>> &matriz, string document) {
+    if (document.size() > data_lenght) {
+        for (int i = 0; i < data_lenght; i++)
+        {
+            int pos = find(vocabulario.begin(), vocabulario.end(), document.at(i)) - vocabulario.begin();
+            if (pos != sizeVoc) {
+                matriz[sizeVoc - pos - 1][i] = 1.0;
+            }
+        }
+    }else {
+        for (int i = 0; i < document.size(); i++)
+        {
+            int pos = find(vocabulario.begin(), vocabulario.end(), document.at(i)) - vocabulario.begin();
+            if (pos != sizeVoc) {
+                matriz[sizeVoc - pos - 1][i] = 1.0;
+            }
         }
     }
 }
@@ -193,7 +131,7 @@ void drawMatrix(int width, int height, vector<vector<int>> matrix, int id){
 
     //img.display("Display my image");
     std::string s = std::to_string(id);
-    string name = "/home/oscarqpe/proyectos/qt/vigilancia-tecnologica/clasificador-multietiqueta/img/img";
+    string name = "/home/oscarqpe/proyectos/qt/vigilancia-tecnologica/clasificador-multietiqueta/cplusplus/img/img";
     name.append(s);
     name.append(".bmp");
     img.save_bmp(name.c_str());
@@ -214,83 +152,149 @@ float normalDistribution() {
     float num = desv * sqrt((float) 12 / cK) * (aux - (float) cK / 2) + media;
     return num;
 }
-void forwardConvolution(vector<vector<int>> matriz);
+void forwardConvolution(vector<vector<float>> matriz);
 void forwardFulltyConected();
 void backwardFullyConected();
-void backwardConvolution();
+void backwardConvolution(vector<vector<float>> matriz);
 void inicializarPesos();
-void calcTotalError();
+void calcTotalError(Documento documento);
 void showConvolution(int n);
 void showResult();
 float maximo (float a, float b, float c);
 void showPooling(int n);
 float f_signoid(float numero);
-
+vector<int> maximoUpdateDelta(float a, float b, float c, int j, int j1, int j2);
+template<typename T>
+T relu(T valor) {
+    if (valor < 0)
+        return 0;
+    else
+        return valor;
+}
+string extractBody(pugi::xml_node text) {
+    if (text.attribute("TYPE").as_string() == "BRIEF")
+        return NULL;
+    pugi::xml_node body = text.child("BODY");
+    return body.text().as_string();
+}
+/*
+void convolution1D(float matrix[x][], int x, int y) {
+    for (int i = 0; i < x; i++) {
+        for (int j = 0; j < y; j++) {
+            cout << matrix[i][j]<< " ";
+        }
+    }
+}
+*/
 int main(int argc, char** argv) {
     srand(time(NULL));
-
-    string filename = "/home/oscarqpe/proyectos/qt/vigilancia-tecnologica/clasificador-multietiqueta/textos/reut2-000.sgm", line, content;
-
-    ifstream file(filename);
-    if (file.is_open()) {
-        while (getline(file, line))
-        {
-            content += line + " ";
-        }
-    }
-    else {
-        std::cout << "Ocurrio un error al abrir el archivo: " << filename << endl;
-    }
     vector<Documento> documentos;
-
-    smatch OuMatches;
-    regex subjectRx("<reuters(.*?)</reuters>", regex_constants::icase);
-    //regex subjectRx("(?<=<reuters).*(?=</reuters>)", regex_constants::icase);
-    regex_iterator<string::iterator> it(content.begin(), content.end(), subjectRx);
-    regex_iterator<string::iterator> end;
-    int i = 1;
-    while (it != end)
+    string filename = "/home/oscarqpe/proyectos/qt/vigilancia-tecnologica/clasificador-multietiqueta/cplusplus/reuters/reut2-000.xml", line, content;
+    std::ifstream infile("/home/oscarqpe/proyectos/qt/vigilancia-tecnologica/clasificador-multietiqueta/cplusplus/reuters/labels.txt");
+    string label;
+    vector<string> labels;
+    while (infile >> label)
     {
-        string contenido = it->str();
-        //cout << contenido << endl;
-        Documento documento;
-        documento.setContenido(getContenido(contenido));
-        documento.setEtiquetas(getEtiquetas(contenido));
-        encodeOneHot(documento.matriz, documento.getContenido());
-        documentos.push_back(documento);
-        ++it;
-        i++;
-        //if (i == 9)
-        //    break;
+        labels.push_back(label);
     }
-    int total = 0;
-    int totalDoc = 0;
-    vector<Documento> documentosProcesar;
-    for (int i = 0; i < documentos.size(); i++)
+    labels_size = labels.size();
+    pugi::xml_document doc;
+
+    pugi::xml_parse_result result = doc.load_file(filename.c_str(),
+            pugi::parse_default|pugi::parse_declaration);
+    int i = 0;
+    pugi::xml_node lewis = doc.child("LEWIS");
+    for (pugi::xml_node reuter = lewis.child("REUTERS");
+         reuter;
+         reuter = reuter.next_sibling("REUTERS"))
     {
-        if (documentos[i].getContenido().size() >= data_lenght && documentos[i].getEtiquetas().size() > 0) {
-            cout << totalDoc + 1 << ") Texto:" << "[" << documentos[i].getEtiquetas().size() << " Etiquetas]" << endl;
-            documentos[i].mostrarEtiquetas();
-            //cout << documentos[i].getContenido() << endl;
-            //documentos[i].mostrarMatriz(sizeVoc);
-            cout << "[" << documentos[i].getContenido().size() << ", " << sizeVoc << "]" << endl;
-            total +=  documentos[i].getContenido().size();
-            //drawMatrix(800/*documentos[i].getContenido().size()*/, sizeVoc, documentos[i].matriz, totalDoc);
-            documentosProcesar.push_back(documentos[i]);
-            totalDoc++;
+        //std::cout << "reuter " << reuter.attribute("TOPICS").value() << "\n";
+        pugi::xml_node text = reuter.child("TEXT");
+        string contenido = extractBody(text);
+        if (!contenido.empty()) {
+            std::vector<float> labels_(labels_size, 0.0);
+            int total_labels = 0;
+            // TOPICS
+            pugi::xml_node topics = reuter.child("TOPICS");
+            for (pugi::xml_node d = topics.child("D");
+                 d;
+                 d = reuter.next_sibling("D"))
+            {
+                int pos = find(labels.begin(), labels.end(), d.text().as_string()) - labels.begin();
+                if (pos >= 0) {
+                    labels_[pos] = 1.0;
+                    total_labels++;
+                }
+            }
+            // PLACES
+            pugi::xml_node places = reuter.child("PLACES");
+            for (pugi::xml_node d = places.child("D"); d; d = reuter.next_sibling("D"))
+            {
+                int pos = find(labels.begin(), labels.end(), d.text().as_string()) - labels.begin();
+                if (pos >= 0) {
+                    labels_[pos] = 1.0;
+                    total_labels++;
+                }
+            }
+            // PEOPLE
+            pugi::xml_node people = reuter.child("PEOPLE");
+            for (pugi::xml_node d = people.child("D"); d; d = reuter.next_sibling("D"))
+            {
+                int pos = find(labels.begin(), labels.end(), d.text().as_string()) - labels.begin();
+                if (pos >= 0) {
+                    labels_[pos] = 1.0;
+                    total_labels++;
+                }
+            }
+            // ORGS
+            pugi::xml_node orgs = reuter.child("ORGS");
+            for (pugi::xml_node d = orgs.child("D"); d; d = reuter.next_sibling("D"))
+            {
+                int pos = find(labels.begin(), labels.end(), d.text().as_string()) - labels.begin();
+                if (pos >= 0) {
+                    labels_[pos] = 1.0;
+                    total_labels++;
+                }
+            }
+            // EXCHANGES
+            pugi::xml_node exchanges = reuter.child("EXCHANGES");
+            for (pugi::xml_node d = exchanges.child("D"); d; d = reuter.next_sibling("D"))
+            {
+                int pos = find(labels.begin(), labels.end(), d.text().as_string()) - labels.begin();
+                if (pos >= 0) {
+                    labels_[pos] = 1.0;
+                    total_labels++;
+                }
+            }
+            if (total_labels > 0) {
+                //cout << "Texto (" << i + 1 <<"): ";
+                //cout<<"Total Labels: " << total_labels << endl;
+                Documento documento(data_lenght, sizeVoc);
+                documento.setContenido(contenido);
+                documento.setEtiquetas(labels_);
+                encodeOneHot(documento.matriz, documento.getContenido());
+                documentos.push_back(documento);
+                i++;
+            }
         }
     }
-    cout << total / totalDoc << endl;
+
+    cout<<"Total documentos leidos: "<<documentos.size()<<endl;
+    float mat[2][2] = {{1,2},{3,4}};
+    //convolution1D(mat, 2, 2);
     // ################ TRAIN ############## //
     inicializarPesos();
     // FORWARD CONVOLUTION
+    for (int i = 0; i < 20; i++) {
+        cout << "TEXTO: " << i + 1 << endl;
+        forwardConvolution(documentos[i].matriz);
+        forwardFulltyConected();
+        calcTotalError(documentos[i]);
+        //backwardFullyConected();
+        //backwardConvolution(documentos[i].matriz);
+        showResult();
+    }
 
-    forwardConvolution(documentos[0].matriz);
-    forwardFulltyConected();
-    calcTotalError();
-    backwardFullyConected();
-    backwardConvolution();
-    showResult();
     //std::cin.get();
     return 0;
 }
@@ -299,11 +303,11 @@ void showResult() {
     cout << "Error Total: " << totalError << endl;
 }
 
-void forwardConvolution(vector<vector<int>> matriz) {
+void forwardConvolution(vector<vector<float>> matriz) {
     // convolution 1
-    cout << "-> START CONVOLUTIONS" << endl;
-    cout << "-> CONVOLUTION 1" << endl;
-    cout << "Input: " << matriz.size() <<endl;
+    //cout << ":::: START CONVOLUTIONS ::::" << endl;
+    //cout << "-> CONVOLUTION 1" << endl;
+    //cout << "Input: " << matriz.size() <<endl;
     float sum = 0;
     int from = 0;
     int numeroFiltros = ARRAY_SIZE(pesosC1);
@@ -314,7 +318,7 @@ void forwardConvolution(vector<vector<int>> matriz) {
             for (int i = 0; i < numeroSalidas; i++)
             {
                 for (int j = 0; j < numeroKernel; j++) {
-                    sum += matriz[j][i + from] * pesosC1[z][i][j];
+                    sum += matriz[i][j + from] * pesosC1[z][i][j];
                 }
             }
             convolution1[z][from] = sum < 0 ? 0 : sum;
@@ -323,7 +327,7 @@ void forwardConvolution(vector<vector<int>> matriz) {
     }
     //showConvolution(1);
     // pooling 1
-    cout << "-> POOLING 1" << endl;
+    //cout << "-> POOLING 1" << endl;
     int frameSize = ARRAY_SIZE(convolution1);
     int frameLenght = ARRAY_SIZE(convolution1[0]);
     for (int i = 0; i < frameSize; i++) {
@@ -333,7 +337,7 @@ void forwardConvolution(vector<vector<int>> matriz) {
     }
     //showPooling(1);
     // convolution 2
-    cout << "-> CONVOLUTION 2" << endl;
+    //cout << "-> CONVOLUTION 2" << endl;
     sum = 0;
     from = 0;
     numeroFiltros = ARRAY_SIZE(pesosC2);
@@ -354,7 +358,7 @@ void forwardConvolution(vector<vector<int>> matriz) {
     }
     //showConvolution(2);
     // pooling 2
-    cout << "-> POOLING 2" << endl;
+    //cout << "-> POOLING 2" << endl;
     frameSize = ARRAY_SIZE(convolution2);
     frameLenght = ARRAY_SIZE(convolution2[0]);
     for (int i = 0; i < frameSize; i++) {
@@ -364,7 +368,7 @@ void forwardConvolution(vector<vector<int>> matriz) {
     }
     // showPooling(2);
     // convolution 3
-    cout << "-> CONVOLUTION 3" << endl;
+    //cout << "-> CONVOLUTION 3" << endl;
     sum = 0;
     from = 0;
     numeroFiltros = ARRAY_SIZE(pesosC3);
@@ -385,7 +389,7 @@ void forwardConvolution(vector<vector<int>> matriz) {
     }
     //showConvolution(3);
     // convolution 4
-    cout << "-> CONVOLUTION 4" << endl;
+    //cout << "-> CONVOLUTION 4" << endl;
     sum = 0;
     from = 0;
     numeroFiltros = ARRAY_SIZE(pesosC4);
@@ -406,7 +410,7 @@ void forwardConvolution(vector<vector<int>> matriz) {
     }
     //showConvolution(4);
     // convolution 5
-    cout << "-> CONVOLUTION 5" << endl;
+    //cout << "-> CONVOLUTION 5" << endl;
     sum = 0;
     from = 0;
     numeroFiltros = ARRAY_SIZE(pesosC5);
@@ -427,7 +431,7 @@ void forwardConvolution(vector<vector<int>> matriz) {
     }
     //showConvolution(5);
     // convolution 6
-    cout << "-> CONVOLUTION 6" << endl;
+    //cout << "-> CONVOLUTION 6" << endl;
     sum = 0;
     from = 0;
     numeroFiltros = ARRAY_SIZE(pesosC6);
@@ -448,7 +452,7 @@ void forwardConvolution(vector<vector<int>> matriz) {
     }
     //showConvolution(6);
     // pooling 6
-    cout << "-> POOLING 6" << endl;
+    //cout << "-> POOLING 6" << endl;
     frameSize = ARRAY_SIZE(convolution6);
     frameLenght = ARRAY_SIZE(convolution6[0]);
     int inputFully = 0;
@@ -461,14 +465,15 @@ void forwardConvolution(vector<vector<int>> matriz) {
     //showPooling(6);
 
 }
-void calcTotalError() {
+void calcTotalError(Documento documento) {
     int sizeOutput = ARRAY_SIZE(outputLayerNet);
     totalError = 0.0;
     for (int i = 0; i < sizeOutput; i++) {
-        cout << target[i] << " - " << outputLayerOut[i] << " = " << target[i] - outputLayerOut[i] << endl;
-        totalError = totalError + (0.5 ) * (target[i] - outputLayerOut[i]) *
-                (target[i] - outputLayerOut[i]);
-        cout << "Total: " << totalError << endl;
+        //cout << target[i] << " - " << outputLayerOut[i] << " = " << target[i] - outputLayerOut[i] << endl;
+        totalError = totalError + (0.5) *
+                (documento.getEtiquetas()[i] - outputLayerOut[i]) *
+                (documento.getEtiquetas()[i] - outputLayerOut[i]);
+        //cout << "Total: " << totalError << endl;
     }
 }
 
@@ -538,9 +543,9 @@ void showPooling(int n) {
 }
 
 void forwardFulltyConected() {
-    cout << "-> START FULLY CONNECTED" << endl;
+    //cout << ":::: START FULLY CONNECTED ::::" << endl;
     // fully 1
-    cout << "-> HIDDEN LAYER 1" << endl;
+    //cout << "-> HIDDEN LAYER 1" << endl;
     int inputSize = ARRAY_SIZE(pesosF1);
     int outputSize = ARRAY_SIZE(pesosF1[0]);
     float sum = 0;
@@ -553,7 +558,7 @@ void forwardFulltyConected() {
         sum = 0;
     }
     // fully 2
-    cout << "-> HIDDEN LAYER 2" << endl;
+    //cout << "-> HIDDEN LAYER 2" << endl;
     inputSize = ARRAY_SIZE(pesosF2);
     outputSize = ARRAY_SIZE(pesosF2[0]);
     sum = 0;
@@ -566,7 +571,7 @@ void forwardFulltyConected() {
         sum = 0;
     }
     // fully 3
-    cout << "-> OUTPUT LAYER" << endl;
+    //cout << "-> OUTPUT LAYER" << endl;
     inputSize = ARRAY_SIZE(pesosF3);
     outputSize = ARRAY_SIZE(pesosF3[0]);
     sum = 0;
@@ -582,9 +587,9 @@ void forwardFulltyConected() {
 }
 
 void backwardFullyConected() {
-    cout << "-> START BACKWARD FULLY CONNECTED" << endl;
+    //cout << ":::: START BACKWARD FULLY CONNECTED ::::" << endl;
     //::::::::::: UPDATE DELTAS ::::::::::::::::::::://
-    cout << "-> UPDATE DELTAS" << endl;
+    //cout << "-> UPDATE DELTAS" << endl;
     // DELTAS OUTPUT LAYER
     int outputSize = ARRAY_SIZE(pesosF3[0]);
     for (int i = 0; i < outputSize; i++) {
@@ -613,8 +618,19 @@ void backwardFullyConected() {
         hiddenLayer1Del[i] = sum * hiddenLayer1Out[i]
                 * (1 - hiddenLayer1Out[i]);
     }
+    // DELTAS INPUT LAYER FULLY CONNECTED
+    outputSize = ARRAY_SIZE(pooling6Del);
+    weightsSize = ARRAY_SIZE(pesosF1[0]);
+    for (int i = 0; i < outputSize; i++) {
+        float sum = 0;
+        for (int j = 0; j < weightsSize; j++) {
+            sum += hiddenLayer1Del[j] * pesosF1[i][j];
+        }
+        pooling6Del[i] = sum * pooling6[i]
+                * (1 - pooling6[i]);
+    }
     //::::::::::: UPDATE WEIGHTS :::::::::::://
-    cout << "-> UPDATE WEIGHTS" << endl;
+    //cout << "-> UPDATE WEIGHTS" << endl;
     // WEIGHTS HIDDEN LAYER 1
     int inputSize = ARRAY_SIZE(pesosF1);
     outputSize = ARRAY_SIZE(pesosF1[0]);
@@ -641,8 +657,275 @@ void backwardFullyConected() {
     }
 }
 
-void backwardConvolution() {
+void backwardConvolution(vector<vector<float>> matriz) {
+    //cout << ":::: START BACKWARD CONVOLUTIONS ::::" << endl;
+    //::::::::::: UPDATE DELTAS ::::::::::::::::::::://
+    //cout << "-> UPDATE DELTAS POOLING 6" << endl;
+    // DELTAS POOLING 6
+    // Is the same to Input's Deltas Fully Connected
+    // DELTAS CONVOLUTION 6
+    //cout << "-> UPDATE DELTAS CONVOLUTION 6" << endl;
+    int frameSize = ARRAY_SIZE(convolution6);
+    int frameLenght = ARRAY_SIZE(convolution6[0]);
+    int inputFully = 0;
+    for (int i = 0; i < frameSize; i++) {
+        for (int j = 0; j < frameLenght; j+=pool6) {
+            vector<int> indices = maximoUpdateDelta(
+                            convolution6[i][j],
+                            convolution6[i][j + 1],
+                            convolution6[i][j + 2],
+                            j, (j + 1), (j + 2));
+            convolution6Del[i][indices[0]] = pooling6Del[inputFully];
+            convolution6Del[i][indices[1]] = 0;
+            convolution6Del[i][indices[2]] = 0;
+            inputFully++;
+        }
+    }
+    // DELTAS CONVOLUTION 5
+    //cout << "-> UPDATE DELTAS CONVOLUTION 5" << endl;
+    frameSize           = ARRAY_SIZE(convolution5);
+    frameLenght         = ARRAY_SIZE(convolution5[0]);
+    int numeroFiltros   = ARRAY_SIZE(pesosC6);
+    int numeroSalidas   = ARRAY_SIZE(pesosC6[0]);
+    int numeroKernel    = ARRAY_SIZE(pesosC6[0][0]);
+    inputFully = 0;
+    for (int i = 0; i < frameSize; i++) {
+        for (int j = 0; j < frameLenght; j++) {
+            float error = 0;
+            for (int p = 0; p < numeroFiltros; p++) {
+                int q = relu(j - kernel6);
+                int z = j - q;
+                while (q <= j - q) {
+                    error += pesosC6[p][i][z] * convolution6Del[p][q];
+                    q++;
+                    z--;
+                }
+            }
+            convolution5Del[i][j] = error;
+        }
+    }
+    // UPDATE WEIGHTS CONVOLUTION 6
+    //cout << "-> UPDATE WEIGHTS CONVOLUTION 6" << endl;
+    for (int f = 0; f < numeroFiltros; f++) {
+        for (int i = 0; i < numeroSalidas; i++) {
+            for (int j = 0; j < numeroKernel; j++) {
+                float error_respecto_peso = 0;
+                int h = frameLenght - kernel6 + 1;
+                for (int n = j, q = 0; n < h + j - 1; n++, q--) {
+                    error_respecto_peso += convolution5[i][n] * convolution6Del[f][q];
+                }
+                pesosC6[f][i][j] = pesosC6[f][i][j] - learningRate * error_respecto_peso;
+            }
+        }
+    }
+    // DELTAS CONVOLUTION 4
+    //cout << "-> UPDATE DELTAS CONVOLUTION 4" << endl;
+    frameSize           = ARRAY_SIZE(convolution4);
+    frameLenght         = ARRAY_SIZE(convolution4[0]);
+    numeroFiltros   = ARRAY_SIZE(pesosC5);
+    numeroSalidas   = ARRAY_SIZE(pesosC5[0]);
+    numeroKernel    = ARRAY_SIZE(pesosC5[0][0]);
+    inputFully = 0;
+    for (int i = 0; i < frameSize; i++) {
+        for (int j = 0; j < frameLenght; j++) {
+            float error = 0;
+            for (int p = 0; p < numeroFiltros; p++) {
+                int q = relu(j - kernel5);
+                int z = j - q;
+                int temp_q = j - q;
+                while (q <= temp_q) {
+                    error += pesosC5[p][i][z] * convolution5Del[p][q];
+                    q++;
+                    z--;
+                }
+            }
+            convolution4Del[i][j] = error;
+        }
+    }
+    // UPDATE WEIGHTS CONVOLUTION 5
+    //cout << "-> UPDATE WEIGHTS CONVOLUTION 5" << endl;
+    for (int f = 0; f < numeroFiltros; f++) {
+        for (int i = 0; i < numeroSalidas; i++) {
+            for (int j = 0; j < numeroKernel; j++) {
+                float error_respecto_peso = 0;
+                int h = frameLenght - kernel5 + 1;
+                for (int n = j, q = 0; n < h + j - 1; n++, q--) {
+                    error_respecto_peso += convolution4[i][n] * convolution5Del[f][q];
+                }
+                pesosC5[f][i][j] = pesosC5[f][i][j] - learningRate * error_respecto_peso;
+            }
+        }
+    }
+    // DELTAS CONVOLUTION 3
+    //cout << "-> UPDATE DELTAS CONVOLUTION 3" << endl;
+    frameSize           = ARRAY_SIZE(convolution3);
+    frameLenght         = ARRAY_SIZE(convolution3[0]);
+    numeroFiltros   = ARRAY_SIZE(pesosC4);
+    numeroSalidas   = ARRAY_SIZE(pesosC4[0]);
+    numeroKernel    = ARRAY_SIZE(pesosC4[0][0]);
+    inputFully = 0;
+    for (int i = 0; i < frameSize; i++) {
+        for (int j = 0; j < frameLenght; j++) {
+            float error = 0;
+            for (int p = 0; p < numeroFiltros; p++) {
+                int q = relu(j - kernel4);
+                int z = j - q;
+                int temp_q = j - q;
+                while (q <= temp_q) {
+                    error += pesosC4[p][i][z] * convolution4Del[p][q];
+                    q++;
+                    z--;
+                }
+            }
+            convolution3Del[i][j] = error;
+        }
+    }
+    // UPDATE WEIGHTS CONVOLUTION 4
+    //cout << "-> UPDATE WEIGHTS CONVOLUTION 4" << endl;
+    for (int f = 0; f < numeroFiltros; f++) {
+        for (int i = 0; i < numeroSalidas; i++) {
+            for (int j = 0; j < numeroKernel; j++) {
+                float error_respecto_peso = 0;
+                int h = frameLenght - kernel4 + 1;
+                for (int n = j, q = 0; n < h + j - 1; n++, q--) {
+                    error_respecto_peso += convolution3[i][n] * convolution4Del[f][q];
+                }
+                pesosC4[f][i][j] = pesosC4[f][i][j] - learningRate * error_respecto_peso;
+            }
+        }
+    }
+    // DELTAS POOLING 2
+    //cout << "-> UPDATE DELTAS POOLING 2" << endl;
+    frameSize           = ARRAY_SIZE(pooling2Del);
+    frameLenght         = ARRAY_SIZE(pooling2Del[0]);
+    numeroFiltros   = ARRAY_SIZE(pesosC3);
+    numeroSalidas   = ARRAY_SIZE(pesosC3[0]);
+    numeroKernel    = ARRAY_SIZE(pesosC3[0][0]);
+    inputFully = 0;
+    for (int i = 0; i < frameSize; i++) {
+        for (int j = 0; j < frameLenght; j++) {
+            float error = 0;
+            for (int p = 0; p < numeroFiltros; p++) {
+                int q = relu(j - kernel3);
+                int z = j - q;
+                int temp_q = j - q;
+                while (q <= temp_q) {
+                    error += pesosC3[p][i][z] * convolution3Del[p][q];
+                    q++;
+                    z--;
+                }
+            }
+            pooling2Del[i][j] = error;
+        }
+    }
+    // UPDATE WEIGHTS CONVOLUTION 3
+    //cout << "-> UPDATE WEIGHTS CONVOLUTION 3" << endl;
+    for (int f = 0; f < numeroFiltros; f++) {
+        for (int i = 0; i < numeroSalidas; i++) {
+            for (int j = 0; j < numeroKernel; j++) {
+                float error_respecto_peso = 0;
+                int h = frameLenght - kernel3 + 1;
+                for (int n = j, q = 0; n < h + j - 1; n++, q--) {
+                    error_respecto_peso += pooling2[i][n] * convolution3Del[f][q];
+                }
+                pesosC3[f][i][j] = pesosC3[f][i][j] - learningRate * error_respecto_peso;
+            }
+        }
+    }
+    // DELTAS CONVOLUTION 2
+    //cout << "-> UPDATE DELTAS CONVOLUTION 2" << endl;
+    frameSize = ARRAY_SIZE(convolution2);
+    frameLenght = ARRAY_SIZE(convolution2[0]);
+    inputFully = 0;
+    for (int i = 0; i < frameSize; i++) {
+        for (int j = 0; j < frameLenght; j+=pool2) {
+            vector<int> indices = maximoUpdateDelta(
+                            convolution2[i][j],
+                            convolution2[i][j + 1],
+                            convolution2[i][j + 2],
+                            j, (j + 1), (j + 2));
+            convolution2Del[i][indices[0]] = pooling2Del[i][inputFully];
+            convolution2Del[i][indices[1]] = 0;
+            convolution2Del[i][indices[2]] = 0;
+            inputFully++;
+        }
+    }
+    // DELTAS POOLING 1
+    //cout << "-> UPDATE DELTAS POOLING 1" << endl;
+    frameSize           = ARRAY_SIZE(pooling1Del);
+    frameLenght         = ARRAY_SIZE(pooling1Del[0]);
+    numeroFiltros   = ARRAY_SIZE(pesosC2);
+    numeroSalidas   = ARRAY_SIZE(pesosC2[0]);
+    numeroKernel    = ARRAY_SIZE(pesosC2[0][0]);
+    inputFully = 0;
+    for (int i = 0; i < frameSize; i++) {
+        for (int j = 0; j < frameLenght; j++) {
+            float error = 0;
+            for (int p = 0; p < numeroFiltros; p++) {
+                int q = relu(j - kernel2);
+                int z = j - q;
+                int temp_q = j - q;
+                while (q <= temp_q) {
+                    error += pesosC2[p][i][z] * convolution2Del[p][q];
+                    q++;
+                    z--;
+                }
+            }
+            pooling1Del[i][j] = error;
+        }
+    }
+    // UPDATE WEIGHTS CONVOLUTION 2
+    //cout << "-> UPDATE WEIGHTS CONVOLUTION 2" << endl;
+    for (int f = 0; f < numeroFiltros; f++) {
+        for (int i = 0; i < numeroSalidas; i++) {
+            for (int j = 0; j < numeroKernel; j++) {
+                float error_respecto_peso = 0;
+                int h = frameLenght - kernel2 + 1;
+                for (int n = j, q = 0; n < h + j - 1; n++, q--) {
+                    error_respecto_peso += pooling1[i][n] * convolution2Del[f][q];
+                }
+                pesosC2[f][i][j] = pesosC2[f][i][j] - learningRate * error_respecto_peso;
+            }
+        }
+    }
+    // DELTAS CONVOLUTION 1
+    //cout << "-> UPDATE DELTAS CONVOLUTION 1" << endl;
+    frameSize = ARRAY_SIZE(convolution1Del);
+    frameLenght = ARRAY_SIZE(convolution1Del[0]);
+    inputFully = 0;
+    for (int i = 0; i < frameSize; i++) {
+        for (int j = 0; j < frameLenght; j+=pool1) {
+            vector<int> indices = maximoUpdateDelta(
+                            convolution1[i][j],
+                            convolution1[i][j + 1],
+                            convolution1[i][j + 2],
+                            j, (j + 1), (j + 2));
+            convolution1Del[i][indices[0]] = pooling1Del[i][inputFully];
+            convolution1Del[i][indices[1]] = 0;
+            convolution1Del[i][indices[2]] = 0;
+            inputFully++;
+        }
+    }
+    // UPDATE WEIGHTS CONVOLUTION 1
+    //cout << "-> UPDATE WEIGHTS CONVOLUTION 1" << endl;
+    frameLenght         = data_lenght;
+    int vocSize         = sizeVoc;
+    numeroFiltros   = ARRAY_SIZE(pesosC1);
+    numeroSalidas   = ARRAY_SIZE(pesosC1[0]);
+    numeroKernel    = ARRAY_SIZE(pesosC1[0][0]);
 
+    for (int f = 0; f < numeroFiltros; f++) {
+        for (int i = 0; i < numeroSalidas; i++) {
+            for (int j = 0; j < numeroKernel; j++) {
+                float error_respecto_peso = 0;
+                int h = frameLenght - kernel3 + 1;
+                for (int n = j, q = 0; n < h + j - 1; n++, q--) {
+                    error_respecto_peso += matriz[i][n] * convolution1Del[f][q];
+                }
+                pesosC1[f][i][j] = pesosC1[f][i][j] - learningRate * error_respecto_peso;
+            }
+        }
+    }
 }
 void inicializarPesos() {
     cout << "Initialize weights---" << endl;
@@ -835,6 +1118,29 @@ float maximo (float a, float b, float c) {
         return c;
     }
     return a;
+}
+vector<int> maximoUpdateDelta(float a, float b, float c, int j, int j1, int j2) {
+    vector<int> indices;
+    if (a >= b && a >= c) {
+        indices.push_back(j);
+        indices.push_back(j1);
+        indices.push_back(j2);
+    }
+    else if (b >= a && b >= c) {
+        indices.push_back(j1);
+        indices.push_back(j);
+        indices.push_back(j2);
+    }
+    else if (c >= a && c >= b) {
+        indices.push_back(j2);
+        indices.push_back(j);
+        indices.push_back(j1);
+    } else {
+        indices.push_back(j);
+        indices.push_back(j1);
+        indices.push_back(j2);
+    }
+    return indices;
 }
 
 float f_signoid(float numero)

@@ -12,6 +12,7 @@ CONFIG -= app_bundle
 TEMPLATE = app
 
 SOURCES += main.cpp
+SOURCES += pugixml.cpp
 
 HEADERS += \
     Documento.h
