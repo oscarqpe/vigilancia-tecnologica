@@ -14,7 +14,7 @@ class Dataset:
     
 	def read_data(self):
 		xml = et.parse(self.path_data, et.XMLParser(encoding='ISO-8859-1')).getroot()
-    	for reuters in xml.findall('REUTERS'):
+		for reuters in xml.findall('REUTERS'):
 	        matrix = []
 	        for text in reuters.findall("TEXT"):
 	            body = extract_body(text)
