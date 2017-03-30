@@ -1,6 +1,8 @@
 
 global labels
 labels = []
+global label_size
+
 global max_characters
 max_characters = 924
 global output_conv_layer_size

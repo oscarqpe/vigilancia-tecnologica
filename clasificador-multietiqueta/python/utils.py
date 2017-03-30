@@ -1,4 +1,6 @@
+import numpy as np
 import config
+
 def one_hot_encoder (text):
 	
 	matrix_one_hot = np.array([np.zeros(config.vocabulary_size, dtype=np.float64)])
@@ -12,7 +14,7 @@ def one_hot_encoder (text):
 				array_encoded[index_character] = 1.0
 				matrix_one_hot = np.append(matrix_one_hot, [array_encoded], axis = 0)
 			except ValueError:
-			    matrix_one_hot = np.append(matrix_one_hot, [np.zeros(config.config.vocabulary_size)], axis = 0)
+			    matrix_one_hot = np.append(matrix_one_hot, [np.zeros(config.vocabulary_size)], axis = 0)
 	else:
 		limit_character = 0
 		for count_character, character in enumerate(text):
@@ -51,3 +53,12 @@ def read_labels ():
 	with open("data/reuters/labels.txt", "r") as ins:
 		for line in ins:
 			config.labels.append(line.strip("\n"))
+			config.label_size = len(config.labels)
+
+def get_path_file(i):
+    print "Extrayendo textos archivo " + str(i)
+    e = ""
+    if i < 10:
+        return 'data/reuters/reut2-00' + str(i) + '.xml'
+    else:
+        return 'data/reuters/reut2-0' + str(i) + '.xml'

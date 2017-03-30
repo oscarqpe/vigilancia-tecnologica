@@ -1,3 +1,9 @@
+import xml.etree.ElementTree as et
+import numpy as np
+import os
+import utils
+import config
+
 class Dataset:
 	def __init__(self, path_data = "", batch=25):
 		assert os.path.exists(path_data), 'No existe el archivo con los datos de entrada ' + path_data
@@ -17,41 +23,41 @@ class Dataset:
 		for reuters in xml.findall('REUTERS'):
 			matrix = []
 	        	for text in reuters.findall("TEXT"):
-	            		body = extract_body(text)
+	            		body = utils.extract_body(text)
 	            		if body != "" and body != None:
 	                		extract_labels = True
 	                		body = list(body.text)
 	            		if extract_labels == True:
-	                		labels_temp = np.zeros(label_size)
+	                		labels_temp = np.zeros(config.label_size)
 	                		all_labels = 0
-	                		index_label = extract_label(reuters, "TOPICS")
+	                		index_label = utils.extract_label(reuters, "TOPICS")
 	                		if index_label != -1:
 	                			labels_temp[index_label] = 1.0
 	                			all_labels = all_labels + 1
-                			index_label = extract_label(reuters, "PLACES")
+                			index_label = utils.extract_label(reuters, "PLACES")
 	                		if index_label != -1:
 	                			labels_temp[index_label] = 1.0
 	                			all_labels = all_labels + 1
-	                		index_label = extract_label(reuters, "PEOPLE")
+	                		index_label = utils.extract_label(reuters, "PEOPLE")
 	                		if index_label != -1:
 	                			labels_temp[index_label] = 1.0
 	                			all_labels = all_labels + 1
-	                		index_label = extract_label(reuters, "ORGS")
+	                		index_label = utils.extract_label(reuters, "ORGS")
 	                		if index_label != -1:
 	                			labels_temp[index_label] = 1.0
 	                			all_labels = all_labels + 1
-	                		index_label = extract_label(reuters, "EXCHANGES")
+	                		index_label = utils.extract_label(reuters, "EXCHANGES")
 	                		if index_label != -1:
 	                			labels_temp[index_label] = 1.0
 	                			all_labels = all_labels + 1
 	                		if all_labels != 0:
 	                    			if reuters.get("LEWISSPLIT") == "TRAIN":
 	                        			self.labels_train.append(labels_temp)
-	                        			matrix = one_hot_encoder(body)
+	                        			matrix = utils.one_hot_encoder(body)
 	                        			self.texts_train.append(matrix)
 	                    			if reuters.get("LEWISSPLIT") == "TEST":
 	                        			self.labels_test.append(labels_temp)
-	                        			matrix = one_hot_encoder(body)
+	                        			matrix = utils.one_hot_encoder(body)
 	                        			self.texts_test.append(matrix)
 	                    			extract_labels = False
 	                		else:
