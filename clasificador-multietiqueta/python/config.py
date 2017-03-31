@@ -1,4 +1,3 @@
-
 global labels
 labels = []
 global label_size
@@ -18,3 +17,8 @@ vocabulary = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', '
 global vocabulary_size 
 
 vocabulary_size = len(vocabulary)
+
+global texts_test
+texts_test = []
+global labels_test
+labels_test = []
