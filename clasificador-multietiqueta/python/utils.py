@@ -28,7 +28,7 @@ def one_hot_encoder (text):
 		for count_character in range(limit_character + 1, config.max_characters):
 			matrix_one_hot = np.append(matrix_one_hot, [np.zeros(config.vocabulary_size)], axis = 0)
 	matrix_one_hot = np.delete(matrix_one_hot, 0, 0)
-	return matrix_one_hot.transpose()
+	return matrix_one_hot#.transpose()
 
 def extract_body ( text ):
 	if text.get("TYPE") is "BRIEF":
