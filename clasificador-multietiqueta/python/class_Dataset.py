@@ -6,21 +6,34 @@ import config
 import random
 
 class Dataset:
-	def __init__(self, path_data = "", batch=25):
+	def __init__(self, path_data = "", batch = 25):
 		#assert os.path.exists(path_data), 'No existe el archivo con los datos de entrada ' + path_data
 		self.path_data = path_data
 		self.names = []
+		self.names_test = []
 		self.texts_train = []
 		self.labels_train = []
 		self.batch = batch
 		self.total_texts = 12337
+		self.total_test = 4891
 		self.start = 0
 		self.end = 0
-		for i in range(0, 12337):
+		self.start_test = 0
+		self.end_test = 0
+		for i in range(0, self.total_texts):
 			self.names.append("text_" + str(i) + ".xml")
-	def read_data(self, name):
+		for i in range(0, self.total_test):
+			self.names_test.append("text_" + str(i) + ".xml")
+	def read_data(self, name, type = 1):
 		#print "extract: " + self.path_data + name
-		reuters = et.parse(self.path_data + name, et.XMLParser(encoding='ISO-8859-1')).getroot()
+		ruta = ""
+		if type == 1:
+			ruta = self.path_data + "train/" + name
+		elif type == 2:
+			ruta = self.path_data + "test/" + name
+		else:
+			ruta = self.path_data + "train/" + name
+		reuters = et.parse(ruta, et.XMLParser(encoding='ISO-8859-1')).getroot()
 		extract_labels = False
 		#print reuters
 		#for reuters in xml.findall('REUTERS'):
@@ -203,16 +216,29 @@ class Dataset:
 	def generate_batch(self):
 		start = self.start
 		end = self.end
-		batch_list = []
-		label_list = []
 		self.texts_train = np.array([])
 		self.labels_train = np.array([])
 		for i in range(start, end):
-			# print(self.images[i], i)
-			# img = utils.load_image(self.dir_images + self.images[i] + '.jpg')[:, :, :3]
-			self.read_data(self.names[i])
-			#batch_list.append(self.names[i])
-		# return batch_list, label_list
+			self.read_data(self.names[i], 1)
+
+	def generate_batch_test(self):
+		start = self.start_test
+		end = self.end_test
+		self.texts_train = np.array([])
+		self.labels_train = np.array([])
+		for i in range(start, end):
+			self.read_data(self.names_test[i], 2)
+
+	def next_test(self):
+		if self.end_test == 0:
+			self.start_test = 0
+			self.end_test = self.batch
+		elif self.end_test + self.batch >= self.total_test:
+			self.start_test = self.end_test
+			self.end_test = self.total_test
+		else:
+			self.start_test = self.end_test
+			self.end_test = self.end_test + self.batch
 
 	def shuffler(self):
 		random.shuffle(self.names)

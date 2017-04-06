@@ -9,7 +9,7 @@ output_conv_layer_size = 256
 global training_iters
 training_iters = 20000
 global batch_size
-batch_size = 25
+batch_size = 73
 global display_step
 display_step = 10
 

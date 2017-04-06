@@ -68,27 +68,31 @@ def multilabel(logits, labels):
 	return out
 
 def get_accuracy (logits, labels):
-	total_etiquetas = np.sum(labels)
-	#print("total etiquetas:", total_etiquetas)
-	logits_ = np.copy(logits)
-	labels_ = np.copy(labels)
-	total = total_etiquetas.astype(int)
-	max_x = np.empty(total, dtype=int)
-	max_y = np.empty(total, dtype=int)
-	#print("labels:", total)
-	#print(logits_)
-	for i in range(0, total):
-		indice = np.argmax(logits_, 1)
-		#print(total,i,indice[0])
-		max_x[i] = indice[0]
-		logits_[0][indice[0]] = 0
-		indice = np.argmax(labels_, 1)
-		#print(total,i,indice[0])
-		max_y[i] = indice[0]
-		labels_[0][indice[0]] = 0
-	c = np.in1d(max_x,max_y)
-	cc = np.where(c == True)[0]
-	if len(cc) == 0:
-		return 0
-	else:
-		return 1
+	#print logits.shape
+	#print labels.shape
+	count = 0
+	for j in range(0, config.batch_size):
+		total_etiquetas = np.sum(labels[j])
+		#print("total etiquetas:", total_etiquetas)
+		logits_ = np.copy(logits[j]).reshape(1, config.label_size)
+		#print logits_.shape
+		labels_ = np.copy(labels[j]).reshape(1, config.label_size)
+		total = total_etiquetas.astype(int)
+		max_x = np.empty(total, dtype=int)
+		max_y = np.empty(total, dtype=int)
+		#print("labels[i]:", total)
+		#print(logits_)
+		for i in range(0, total):
+			indice = np.argmax(logits_, 1)
+			#print(total,i,indice[0])
+			max_x[i] = indice[0]
+			logits_[0][indice[0]] = 0
+			indice = np.argmax(labels_, 1)
+			#print(total,i,indice[0])
+			max_y[i] = indice[0]
+			labels_[0][indice[0]] = 0
+		c = np.in1d(max_x,max_y)
+		cc = np.where(c == True)[0]
+		if len(cc) != 0:
+			count += 1
+	return count
