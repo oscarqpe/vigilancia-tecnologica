@@ -6,6 +6,9 @@ class Cnn:
 	def __init__ (self) :
 		# Parameters
 		self.learning_rate = 0.001
+		#self.global_step = tf.Variable(0, trainable=False)
+		#self.starter_learning_rate = 0.001
+		#self.learning_rate = tf.train.exponential_decay(self.starter_learning_rate, self.global_step, 10000, 0.0096, staircase=True)
 		self.training_iters = 100
 		self.batch_size = 128
 		self.display_step = 10
@@ -20,29 +23,29 @@ class Cnn:
 		# Store layers weight & bias
 		self.weights = {
 			# vocabulary_size x 7 conv, 1 input, 256 outputs
-			'wc1': tf.Variable(tf.random_normal([7, config.vocabulary_size, 256])),
+			'wc1': tf.Variable(tf.random_normal([7, config.vocabulary_size, 256], mean=0.0, stddev=0.02)),
 			# 5x5 conv, 32 inputs, 64 outputs
-			'wc2': tf.Variable(tf.random_normal([7, 256, 256])),
-			'wc3': tf.Variable(tf.random_normal([3, 256, 256])),
-			'wc4': tf.Variable(tf.random_normal([3, 256, 256])),
-			'wc5': tf.Variable(tf.random_normal([5, 256, 256])),
-			'wc6': tf.Variable(tf.random_normal([3, 256, 256])),
+			'wc2': tf.Variable(tf.random_normal([7, 256, 256], mean=0.0, stddev=0.02)),
+			'wc3': tf.Variable(tf.random_normal([3, 256, 256], mean=0.0, stddev=0.02)),
+			'wc4': tf.Variable(tf.random_normal([3, 256, 256], mean=0.0, stddev=0.02)),
+			'wc5': tf.Variable(tf.random_normal([3, 256, 256], mean=0.0, stddev=0.02)),
+			'wc6': tf.Variable(tf.random_normal([3, 256, 256], mean=0.0, stddev=0.02)),
 			# fully connected, 7*7*64 inputs, 1024 outputs
-			'wd1': tf.Variable(tf.random_normal([30*256, 1024])),
-			'wd2': tf.Variable(tf.random_normal([1024, 1024])),
+			'wd1': tf.Variable(tf.random_normal([34 * 256, 1024], mean=0.0, stddev=0.02)),
+			'wd2': tf.Variable(tf.random_normal([1024, 1024], mean=0.0, stddev=0.02)),
 			# 1024 inputs, 10 outputs (class prediction)
-			'out': tf.Variable(tf.random_normal([1024, config.label_size]))
+			'out': tf.Variable(tf.random_normal([1024, config.label_size], mean=0.0, stddev=0.02))
 		}
 		self.biases = {
-			'bc1': tf.Variable(tf.random_normal([256])),
-			'bc2': tf.Variable(tf.random_normal([256])),
-			'bc3': tf.Variable(tf.random_normal([256])),
-			'bc4': tf.Variable(tf.random_normal([256])),
-			'bc5': tf.Variable(tf.random_normal([256])),
-			'bc6': tf.Variable(tf.random_normal([256])),
-			'bd1': tf.Variable(tf.random_normal([1024])),
-			'bd2': tf.Variable(tf.random_normal([1024])),
-			'out': tf.Variable(tf.random_normal([config.label_size]))
+			'bc1': tf.Variable(tf.random_normal([256], mean=0.0, stddev=0.02)),
+			'bc2': tf.Variable(tf.random_normal([256], mean=0.0, stddev=0.02)),
+			'bc3': tf.Variable(tf.random_normal([256], mean=0.0, stddev=0.02)),
+			'bc4': tf.Variable(tf.random_normal([256], mean=0.0, stddev=0.02)),
+			'bc5': tf.Variable(tf.random_normal([256], mean=0.0, stddev=0.02)),
+			'bc6': tf.Variable(tf.random_normal([256], mean=0.0, stddev=0.02)),
+			'bd1': tf.Variable(tf.random_normal([1024], mean=0.0, stddev=0.02)),
+			'bd2': tf.Variable(tf.random_normal([1024], mean=0.0, stddev=0.02)),
+			'out': tf.Variable(tf.random_normal([config.label_size], mean=0.0, stddev=0.02))
 		}
 	# Create some wrappers for simplicity
 	def convolution_1d(self, x, filters, bias, strides=1):
@@ -70,12 +73,12 @@ class Cnn:
 		
 		conv1 = self.convolution_1d(input_data, weights['wc1'], biases['bc1'], strides=1)
 		#print conv1
-		conv1 = self.max_pool_1d(conv1, 918, 256, 3)
+		conv1 = self.max_pool_1d(conv1, config.max_characters - 7 + 1, 256, 3)
 		#print conv1
 
 		conv2 = self.convolution_1d(conv1, weights['wc2'], biases['bc2'], strides=1)
 		#print conv2
-		conv2 = self.max_pool_1d(conv2, 306 - 7 + 1, 256, 3)
+		conv2 = self.max_pool_1d(conv2, 336 - 7 + 1, 256, 3)
 		#print conv2
 
 		conv3 = self.convolution_1d(conv2, weights['wc3'], biases['bc3'], strides=1)
@@ -87,7 +90,7 @@ class Cnn:
 		#print conv5
 		conv6 = self.convolution_1d(conv5, weights['wc6'], biases['bc6'], strides=1)
 		#print conv6
-		pool6 = self.max_pool_1d(conv6, 90, 256, 3)
+		pool6 = self.max_pool_1d(conv6, 102, 256, 3)
 		#print pool6
 		# Fully connected layer
 		# Reshape conv2 output to fit fully connected layer input

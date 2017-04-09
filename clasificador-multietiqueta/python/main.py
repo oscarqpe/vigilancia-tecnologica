@@ -11,6 +11,7 @@ import cnn as cn
 
 # print(labels)
 print("Total labels: ", len(config.labels))
+print config.vocabulary_size
 
 cnn = cn.Cnn()
 # Construct model
@@ -28,7 +29,7 @@ correct_pred = tf.equal(tf.argmax(pred, 1), tf.argmax(cnn.y, 1))
 #accuracy = get_accuracy(logits=pred, labels=y)
 data = None
 init = tf.global_variables_initializer()
-config.training_iters = 220000
+config.training_iters = 40000
 with tf.Session() as sess:
     sess.run(init)
     #print(sess.run(weights['wc1']))
